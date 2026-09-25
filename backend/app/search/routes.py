@@ -40,9 +40,12 @@ def ask(body: AskIn, user=Depends(current_user), conn=Depends(get_conn)):
         except AnswerUnavailable as e:
             error = str(e)
 
-    cited = [sources[k - 1]["chunk_id"] for k in cited_indices(answer or "", len(sources))]
+    cited_numbers = cited_indices(answer or "", len(sources))
+    cited = [sources[k - 1]["chunk_id"] for k in cited_numbers]
+    cited_documents = sorted({sources[k - 1]["document_id"] for k in cited_numbers})
     conn.execute(
-        "INSERT INTO queries (user_id, text, cited_chunk_ids) VALUES (%s, %s, %s)",
-        (user["id"], body.question, cited),
+        """INSERT INTO queries (user_id, text, cited_chunk_ids, space_ids, result_count, cited_document_ids, answer_generated)
+           VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+        (user["id"], body.question, cited, space_ids, len(hits), cited_documents, answer is not None),
     )
     return {"answer": answer, "answer_error": error, "sources": sources}
