@@ -49,7 +49,7 @@ export function AskView({ initialSpaceId }: { initialSpaceId: number | null }) {
           aria-label="Search in"
           value={spaceId ?? ""}
           onChange={(e) => setSpaceId(e.target.value === "" ? null : Number(e.target.value))}
-          className="h-9 rounded-lg border border-[#cfd3e3] bg-white px-2.5 text-sm"
+          className="h-9 rounded-lg border border-field bg-white px-2.5 text-sm"
         >
           <option value="">All spaces</option>
           {(spaces.data ?? []).map((space) => (
@@ -77,7 +77,7 @@ export function AskView({ initialSpaceId }: { initialSpaceId: number | null }) {
       </div>
 
       <div className="pb-6 pt-2">
-        <div className="flex items-end gap-2 rounded-2xl border border-[#cfd3e3] bg-white p-2 shadow-sm focus-within:border-brand">
+        <div className="flex items-end gap-2 rounded-2xl border border-field bg-white p-2 shadow-sm focus-within:border-brand">
           <Textarea
             aria-label="Your question"
             rows={1}
