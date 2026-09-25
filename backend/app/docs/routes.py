@@ -10,10 +10,6 @@ from app.ingest.pipeline import reindex_in_background
 router = APIRouter()
 
 
-class SpaceIn(BaseModel):
-    name: str
-
-
 class DocIn(BaseModel):
     title: str
     body_md: str = ""
@@ -37,11 +33,6 @@ class DocUpdate(BaseModel):
 def _require_space(conn, space_id):
     if not service.get_space(conn, space_id):
         raise HTTPException(404, "space not found")
-
-
-@router.post("/spaces", status_code=201)
-def create_space(body: SpaceIn, conn=Depends(get_conn)):
-    return service.create_space(conn, body.name)
 
 
 @router.post("/spaces/{space_id}/documents", status_code=201)
