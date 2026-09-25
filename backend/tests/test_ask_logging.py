@@ -96,3 +96,12 @@ def test_a_failing_answer_service_still_logs_the_search(client, conn, monkeypatc
     row = _last_query(conn)
     assert row["result_count"] == 1
     assert row["answer_generated"] is False and row["cited_document_ids"] == []
+
+
+def test_an_empty_generated_answer_is_logged_as_generated_but_uncited(client, conn, monkeypatch):
+    monkeypatch.setattr("app.search.routes.generate_answer", lambda q, chunks: "")
+    sid = client.post("/spaces", json={"name": "S"}).json()["id"]
+    _doc(client, sid, "Notes", "# A\nrefund alpha")
+    client.post("/ask", json={"question": "refund", "space_ids": [sid]})
+    row = _last_query(conn)
+    assert row["answer_generated"] is True and row["cited_document_ids"] == []
