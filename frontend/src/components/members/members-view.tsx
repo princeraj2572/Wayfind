@@ -44,7 +44,7 @@ export function MembersView({ spaceId }: { spaceId: number }) {
 
   const space = spaces.data?.find((s) => s.id === spaceId);
 
-  if (leaving || spaces.isPending || me.isPending || (members.isPending && !members.isError)) {
+  if (leaving || spaces.isPending || me.isPending || members.isPending) {
     return (
       <div className="mx-auto max-w-3xl space-y-3 px-6 py-8">
         <Skeleton className="h-7 w-48" />
@@ -78,6 +78,16 @@ export function MembersView({ spaceId }: { spaceId: number }) {
   async function onAdd(event: React.FormEvent) {
     event.preventDefault();
     setAddError(null);
+    setRowError(null);
+    if (email.trim().toLowerCase() === me.data?.email.toLowerCase()) {
+      // Adding yourself would change your own role: treat it exactly like using your row's role select.
+      const own = members.data?.find((m) => m.user_id === me.data?.id);
+      if (own) {
+        changeRole(own, newRole);
+        setEmail("");
+        return;
+      }
+    }
     try {
       await setRole.mutateAsync({ email: email.trim(), role: newRole });
       setEmail("");
@@ -90,6 +100,7 @@ export function MembersView({ spaceId }: { spaceId: number }) {
     if (!target) return;
     const self = target.user_id === me.data?.id;
     setRemoveError(null);
+    setRowError(null);
     try {
       await remove.mutateAsync(target.user_id);
       setTarget(null);
