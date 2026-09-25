@@ -38,6 +38,11 @@ export function MarkdownPreview({ text, demoteHeadings = false }: { text: string
             void node;
             return <a {...rest} target="_blank" rel="noopener noreferrer" />;
           },
+          img: ({ node, ...rest }) => {
+            void node;
+            // eslint-disable-next-line @next/next/no-img-element
+            return <img {...rest} alt={rest.alt ?? ""} loading="lazy" referrerPolicy="no-referrer" />;
+          },
         }}
       >
         {text}
