@@ -20,7 +20,7 @@ export function Sidebar() {
   const spaces = useSpaces();
   const currentId = /^\/s\/(\d+)/.exec(pathname)?.[1];
   const list = spaces.data ?? [];
-  const docsTarget = list.length ? `/s/${currentId ?? list[0].id}` : null;
+  const docsTarget = currentId ? `/s/${currentId}` : list.length ? `/s/${list[0].id}` : null;
 
   return (
     <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-line bg-panel p-3 md:flex">
@@ -38,6 +38,10 @@ export function Sidebar() {
             <FolderOpen aria-hidden className="size-4" />
             Documents
           </Link>
+        ) : spaces.isPending ? (
+          <div className={item}>
+            <Skeleton className="h-4 w-24 bg-line" />
+          </div>
         ) : (
           <span aria-disabled="true" className={cn(item, "cursor-not-allowed text-mute/70")}>
             <FolderOpen aria-hidden className="size-4" />
@@ -57,8 +61,8 @@ export function Sidebar() {
       <div className="mt-1.5 min-h-0 flex-1 overflow-y-auto">
         {spaces.isPending ? (
           <div className="space-y-2 px-2.5 py-1">
-            <Skeleton className="h-4 w-32" />
-            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-4 w-32 bg-line" />
+            <Skeleton className="h-4 w-24 bg-line" />
           </div>
         ) : spaces.isError ? (
           <p className="px-2.5 text-xs text-danger">Couldn&apos;t load spaces.</p>
