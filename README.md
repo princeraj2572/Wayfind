@@ -88,6 +88,7 @@ In production the app must be served over HTTPS, because the session cookie is `
 | `POST /spaces`, `GET /spaces` | logged in (creating a space makes you its admin) |
 | `GET /spaces/{id}/members` | viewer and up |
 | `PUT /spaces/{id}/members`, `DELETE /spaces/{id}/members/{user_id}` | admin |
+| `GET /spaces/{id}/analytics` | admin (question statistics for the space; `days` is 7, 30 or 90) |
 | `GET /spaces/{id}/documents`, `GET /documents/{id}` | viewer and up |
 | `POST /spaces/{id}/documents`, `POST /spaces/{id}/documents/upload`, `PUT` and `DELETE /documents/{id}` | editor and up |
 | `POST /ask` | logged in; searches only your spaces |
@@ -122,3 +123,4 @@ python -m app.eval.run_eval
 - A failed background reindex is reported as `index_status: failed` (details are only logged); saving the document body again retries it
 - Unsaved-change warnings cover closing the tab and following in-app links; browser back/forward buttons are not guarded
 - The eval corpus is small (6 documents, 12 questions), so its numbers are only a rough guide
+- Analytics only cover questions asked after analytics were added; the question log has no retention limit yet, and "unanswered" detection needs Claude answers to be configured
