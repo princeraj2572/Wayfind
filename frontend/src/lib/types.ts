@@ -43,3 +43,9 @@ export interface AskResponse {
 export const NO_MATCH_ERROR = "no matching documents found";
 
 export const canEdit = (role?: Role) => role === "editor" || role === "admin";
+
+export interface Member {
+  user_id: number;
+  email: string;
+  role: Role;
+}
