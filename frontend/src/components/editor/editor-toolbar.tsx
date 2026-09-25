@@ -31,8 +31,8 @@ export function EditorToolbar({ onTool, disabled }: { onTool: (tool: ToolName) =
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => onTool(name)}
           className={cn(
-            "grid size-8 place-items-center rounded-md border border-line bg-white text-[#3b4256] hover:bg-panel",
-            "disabled:pointer-events-none disabled:opacity-40",
+            "grid size-8 place-items-center rounded-md border border-line bg-white text-ink-soft hover:bg-panel",
+            "disabled:pointer-events-none disabled:opacity-50",
           )}
         >
           <Icon aria-hidden className="size-4" />
