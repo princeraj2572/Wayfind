@@ -11,9 +11,11 @@ import { useCreateSpace } from "@/lib/queries";
 export function NewSpaceDialog({
   open: controlledOpen,
   onOpenChange,
+  onCloseAutoFocus,
 }: {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  onCloseAutoFocus?: (event: Event) => void;
 } = {}) {
   const router = useRouter();
   const create = useCreateSpace();
@@ -55,7 +57,11 @@ export function NewSpaceDialog({
           </Button>
         </DialogTrigger>
       )}
-      <DialogContent title="New space" description="A space groups documents and decides who can read or edit them.">
+      <DialogContent
+        title="New space"
+        description="A space groups documents and decides who can read or edit them."
+        onCloseAutoFocus={onCloseAutoFocus}
+      >
         <form onSubmit={onSubmit} className="space-y-3">
           <div className="space-y-1.5">
             <label htmlFor="space-name" className="text-sm font-medium">
