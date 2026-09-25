@@ -44,3 +44,7 @@ def test_pdf_without_text_is_rejected():
 def test_corrupt_pdf_is_rejected():
     with pytest.raises(ValueError, match="could not read"):
         extract_text("bad.pdf", b"not a pdf")
+
+
+def test_nul_bytes_are_stripped():
+    assert extract_text("a.txt", b"a\x00b") == "ab"
