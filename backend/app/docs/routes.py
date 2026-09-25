@@ -1,6 +1,6 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, UploadFile
 from pathlib import Path
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from app.db import get_conn
 from app.docs import service
@@ -18,10 +18,20 @@ class DocIn(BaseModel):
     title: str
     body_md: str = ""
 
+    @field_validator("title", "body_md", mode="after")
+    @classmethod
+    def _strip_nul(cls, v: str) -> str:
+        return v.replace("\x00", "")
+
 
 class DocUpdate(BaseModel):
     title: str | None = None
     body_md: str | None = None
+
+    @field_validator("title", "body_md", mode="after")
+    @classmethod
+    def _strip_nul(cls, v: str | None) -> str | None:
+        return v.replace("\x00", "") if v is not None else v
 
 
 def _require_space(conn, space_id):
@@ -49,10 +59,10 @@ def list_documents(space_id: int, conn=Depends(get_conn)):
 
 
 @router.post("/spaces/{space_id}/documents/upload", status_code=201)
-async def upload_document(space_id: int, file: UploadFile, background: BackgroundTasks, conn=Depends(get_conn)):
+def upload_document(space_id: int, file: UploadFile, background: BackgroundTasks, conn=Depends(get_conn)):
     _require_space(conn, space_id)
     try:
-        text = extract_text(file.filename or "", await file.read())
+        text = extract_text(file.filename or "", file.file.read())
     except ValueError as e:
         raise HTTPException(400, str(e))
     path = Path(file.filename)
