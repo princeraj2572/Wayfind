@@ -31,3 +31,9 @@ test("the matcher leaves public and asset paths alone", () => {
   }
   for (const p of ["/", "/ask", "/s/1", "/d/2"]) expect(matcher.test(p)).toBe(true);
 });
+
+test("the matcher protects paths that merely start with api, login or register", () => {
+  const matcher = new RegExp(`^${config.matcher[0]}$`);
+  for (const p of ["/apiary", "/login-help", "/registered"]) expect(matcher.test(p)).toBe(true);
+  for (const p of ["/api", "/api/x", "/login", "/register"]) expect(matcher.test(p)).toBe(false);
+});
