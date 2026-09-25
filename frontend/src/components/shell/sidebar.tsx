@@ -4,7 +4,6 @@ import { ChartColumn, FolderOpen, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Brand } from "@/components/brand";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/cn";
 import { useSpaces } from "@/lib/queries";
@@ -21,6 +20,10 @@ export function Sidebar() {
   const currentId = /^\/s\/(\d+)/.exec(pathname)?.[1];
   const list = spaces.data ?? [];
   const docsTarget = currentId ? `/s/${currentId}` : list.length ? `/s/${list[0].id}` : null;
+  const currentSpace = list.find((s) => String(s.id) === currentId);
+  const analyticsTarget = currentSpace?.role === "admin" ? `/s/${currentSpace.id}/analytics` : null;
+  const onAnalytics = /^\/s\/\d+\/analytics\/?$/.test(pathname);
+  const onDocuments = pathname.startsWith("/s/") && !onAnalytics;
 
   return (
     <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-line bg-panel p-3 md:flex">
@@ -34,7 +37,7 @@ export function Sidebar() {
           Ask
         </Link>
         {docsTarget ? (
-          <Link href={docsTarget} className={cn(item, pathname.startsWith("/s/") ? active : idle)}>
+          <Link href={docsTarget} aria-current={onDocuments ? "page" : undefined} className={cn(item, onDocuments ? active : idle)}>
             <FolderOpen aria-hidden className="size-4" />
             Documents
           </Link>
@@ -48,13 +51,21 @@ export function Sidebar() {
             Documents
           </span>
         )}
-        <span aria-disabled="true" className={cn(item, "cursor-not-allowed text-mute/70")}>
-          <ChartColumn aria-hidden className="size-4" />
-          Analytics
-          <Badge tone="gray" className="ml-auto">
-            Soon
-          </Badge>
-        </span>
+        {analyticsTarget ? (
+          <Link
+            href={analyticsTarget}
+            aria-current={onAnalytics ? "page" : undefined}
+            className={cn(item, onAnalytics ? active : idle)}
+          >
+            <ChartColumn aria-hidden className="size-4" />
+            Analytics
+          </Link>
+        ) : (
+          <span aria-disabled="true" title="Admins only" className={cn(item, "cursor-not-allowed text-mute/70")}>
+            <ChartColumn aria-hidden className="size-4" />
+            Analytics
+          </span>
+        )}
       </nav>
 
       <div className="mt-6 px-2.5 text-[10.5px] font-semibold uppercase tracking-wider text-mute">Spaces</div>
