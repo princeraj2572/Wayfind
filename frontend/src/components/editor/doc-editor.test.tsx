@@ -150,7 +150,8 @@ test("after deleting, the editor never flashes a not found state", async () => {
     http.get("*/api/spaces", () => HttpResponse.json([makeSpace()])),
     http.get("*/api/documents/10", () => {
       if (deleted) {
-        getsAfterDelete += 1;
+        // Only GETs after the editor has navigated away count; one already in flight when DELETE returned may still land.
+        if (vi.mocked(router.replace).mock.calls.length > 0) getsAfterDelete += 1;
         return HttpResponse.json({ detail: "not found" }, { status: 404 });
       }
       return HttpResponse.json(makeDoc({ index_status: "pending", chunk_count: 0 }));
@@ -229,7 +230,8 @@ test("a title typed while a save is in flight is not overwritten", async () => {
   await screen.findByRole("button", { name: "Saving…" });
   await userEvent.type(screen.getByRole("textbox", { name: "Title" }), "X");
   release();
-  expect(await screen.findByText("Saved")).toBeInTheDocument();
+  // (A "Saved" toast from an earlier test can linger in sonner's global store, so wait on the button instead.)
+  await waitFor(() => expect(screen.queryByRole("button", { name: "Saving…" })).toBeNull());
   expect(screen.getByRole("textbox", { name: "Title" })).toHaveValue("Refund Policy v2X");
 });
 
