@@ -105,3 +105,17 @@ def test_token_for_deleted_user_is_rejected(anon_client, conn):
     token = _reg(anon_client).json()["access_token"]
     conn.execute("DELETE FROM users WHERE id = 1")
     assert anon_client.get("/auth/me", headers=_bearer(token)).status_code == 401
+
+
+@pytest.mark.parametrize("email", ["a\u0000@x.com", "alice@example.com\u0000"])
+def test_login_with_nul_in_email_is_a_clean_401(anon_client, monkeypatch, email):
+    _reg(anon_client)
+    unknown = anon_client.post("/auth/login", json={"email": "ghost@example.com", "password": "password123"})
+    calls = []
+    real = security.burn_verify
+    monkeypatch.setattr("app.auth.routes.burn_verify", lambda pw: calls.append(pw) or real(pw))
+    r = anon_client.post("/auth/login", json={"email": email, "password": "password123"})
+    assert r.status_code == 401
+    assert r.json() == unknown.json()
+    assert r.headers["www-authenticate"] == "Bearer"
+    assert calls == ["password123"]
