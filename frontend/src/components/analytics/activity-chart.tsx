@@ -27,7 +27,7 @@ export function ActivityChart({ daily }: { daily: DailyCount[] }) {
       {daily.length > 0 ? (
         <div aria-hidden className="mt-1 flex justify-between text-[11px] text-mute">
           <span>{daily[0].date}</span>
-          <span>{daily[daily.length - 1].date}</span>
+          {daily.length > 1 ? <span>{daily[daily.length - 1].date}</span> : null}
         </div>
       ) : null}
     </figure>
