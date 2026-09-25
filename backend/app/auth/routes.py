@@ -56,7 +56,7 @@ def register(body: RegisterIn, conn=Depends(get_conn)):
 
 @router.post("/auth/login")
 def login(body: LoginIn, conn=Depends(get_conn)):
-    user = service.get_user_by_email(conn, body.email)
+    user = None if "\x00" in body.email else service.get_user_by_email(conn, body.email)
     ok = verify_password(body.password, user["password_hash"]) if user else burn_verify(body.password)
     if not ok:
         raise HTTPException(401, "invalid email or password", headers={"WWW-Authenticate": "Bearer"})
