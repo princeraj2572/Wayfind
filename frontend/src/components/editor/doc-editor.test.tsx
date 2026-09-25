@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { http, HttpResponse } from "msw";
+import { delay, http, HttpResponse } from "msw";
 import { makeDoc, makeSpace } from "@/test/fixtures";
 import { resetNav, router } from "@/test/nav";
 import { renderWithClient } from "@/test/render";
@@ -377,4 +377,39 @@ test("a spaces refetch that no longer lists the space keeps the mounted editor a
   await new Promise((r) => setTimeout(r, 50));
   expect(screen.queryByText("Space not found")).not.toBeInTheDocument();
   expect(screen.getByRole("textbox", { name: "Title" })).toHaveValue("Refund Policy v2");
+});
+
+test("while a new document is being created, Discard and the formatting toolbar are locked", async () => {
+  server.use(
+    http.get("*/api/spaces", () => HttpResponse.json([makeSpace()])),
+    http.post("*/api/spaces/1/documents", async () => {
+      await delay(300);
+      return HttpResponse.json(makeDoc({ id: 42, title: "Handbook", body_md: "Hello" }), { status: 201 });
+    }),
+  );
+  renderWithClient(<DocEditor spaceId={1} docId={null} />);
+  await userEvent.type(await title(), "Handbook");
+  await userEvent.type(body(), "Hello");
+  expect(screen.getByRole("button", { name: "Discard" })).toBeInTheDocument();
+  await userEvent.click(save());
+  await waitFor(() => expect(screen.queryByRole("button", { name: "Discard" })).not.toBeInTheDocument());
+  expect(screen.getByRole("button", { name: "Bold" })).toBeDisabled();
+  await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/s/1/d/42"));
+});
+
+test("after a save the editor shows what the server stored, so it is not left dirty", async () => {
+  mockApi();
+  server.use(
+    http.put("*/api/documents/10", () =>
+      HttpResponse.json(makeDoc({ title: "Refund Policy", body_md: "cleaned by the server" })),
+    ),
+  );
+  renderWithClient(<DocEditor spaceId={1} docId={10} />);
+  await userEvent.type(await title(), " v2");
+  await userEvent.type(body(), " with junk");
+  await userEvent.click(save());
+  await waitFor(() => expect(body()).toHaveValue("cleaned by the server"));
+  expect(screen.getByRole("textbox", { name: "Title" })).toHaveValue("Refund Policy");
+  expect(save()).toBeDisabled();
+  expect(screen.queryByRole("button", { name: "Discard" })).not.toBeInTheDocument();
 });
