@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { http, HttpResponse } from "msw";
+import { delay, http, HttpResponse } from "msw";
 import type { Role, SpaceAnalytics } from "@/lib/types";
 import { makeAnalytics, makeSpace } from "@/test/fixtures";
 import { resetNav } from "@/test/nav";
@@ -39,7 +39,7 @@ test("shows the totals, defaulting to the last 30 days", async () => {
   expect(tile("People asking").getByText("4")).toBeInTheDocument();
   expect(requested).toEqual([30]);
   expect(screen.getByRole("button", { name: "30 days" })).toHaveAttribute("aria-pressed", "true");
-  expect(screen.getByText(/10 of 12 questions had a generated answer/i)).toBeInTheDocument();
+  expect(screen.getByText(/10 of 12 had one/i)).toBeInTheDocument();
 });
 
 test("lists gaps, top questions and most cited documents", async () => {
@@ -161,4 +161,63 @@ test("an all-zero series and a single day still render", () => {
   const chart = screen.getByRole("img");
   expect(chart.children).toHaveLength(1);
   expect(parseFloat((chart.children[0] as HTMLElement).style.height)).toBeGreaterThan(0);
+});
+
+test("a failure while switching the period keeps the page and the period buttons", async () => {
+  server.use(
+    http.get("*/api/spaces", () => HttpResponse.json([makeSpace()])),
+    http.get("*/api/spaces/1/analytics", ({ request }) =>
+      new URL(request.url).searchParams.get("days") === "7"
+        ? HttpResponse.json({ detail: "boom" }, { status: 500 })
+        : HttpResponse.json(makeAnalytics()),
+    ),
+  );
+  renderWithClient(<AnalyticsView spaceId={1} />);
+  await screen.findByRole("region", { name: "Top questions" });
+  await userEvent.click(screen.getByRole("button", { name: "7 days" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't load analytics");
+  expect(screen.getByRole("button", { name: "30 days" })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "30 days" }));
+  expect(await screen.findByRole("region", { name: "Top questions" })).toBeInTheDocument();
+});
+
+test("the previous numbers stay visible and dimmed while a new period loads", async () => {
+  server.use(
+    http.get("*/api/spaces", () => HttpResponse.json([makeSpace()])),
+    http.get("*/api/spaces/1/analytics", async ({ request }) => {
+      const days = Number(new URL(request.url).searchParams.get("days"));
+      if (days === 7) await delay(400);
+      return HttpResponse.json(makeAnalytics({ days: days as 7 | 30 | 90 }));
+    }),
+  );
+  renderWithClient(<AnalyticsView spaceId={1} />);
+  await screen.findByRole("region", { name: "Top questions" });
+  await userEvent.click(screen.getByRole("button", { name: "7 days" }));
+  const busy = document.querySelector("[aria-busy='true']");
+  expect(busy).not.toBeNull();
+  expect(busy).toHaveClass("opacity-60");
+  expect(within(busy as HTMLElement).getByText("how long do refunds take?")).toBeInTheDocument();
+  await waitFor(() => expect(document.querySelector("[aria-busy='true']")).toBeNull());
+});
+
+test("large numbers are formatted with separators", async () => {
+  mockApi("admin", (d) =>
+    makeAnalytics({
+      days: d as 7 | 30 | 90,
+      totals: { questions: 1234567, answered: 1, unanswered: 1, unique_askers: 1, with_generated_answer: 1 },
+    }),
+  );
+  renderWithClient(<AnalyticsView spaceId={1} />);
+  await waitFor(() => expect(tile("Questions").getByText("1,234,567")).toBeInTheDocument());
+});
+
+test("the hint says gaps are only detected for questions that got an AI answer", async () => {
+  mockApi();
+  renderWithClient(<AnalyticsView spaceId={1} />);
+  expect(await screen.findByText(/only detected for questions that got an AI answer/i)).toBeInTheDocument();
+});
+
+test("a single-day chart shows its date once", () => {
+  render(<ActivityChart daily={[{ date: "2026-09-25", questions: 2 }]} />);
+  expect(screen.getAllByText("2026-09-25")).toHaveLength(1);
 });
