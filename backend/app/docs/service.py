@@ -33,7 +33,11 @@ def list_documents(conn, space_id):
     return conn.execute(_DOCUMENT_SELECT + " WHERE d.space_id = %s ORDER BY d.id", (space_id,)).fetchall()
 
 
-def update_document(conn, doc_id, title=None, body_md=None, user_id=None):
+class StaleDocument(Exception):
+    """The document changed after the version the caller based their edit on."""
+
+
+def update_document(conn, doc_id, title=None, body_md=None, user_id=None, expected_updated_at=None):
     row = conn.execute(
         """UPDATE documents
            SET title = COALESCE(%s, title),
@@ -41,10 +45,15 @@ def update_document(conn, doc_id, title=None, body_md=None, user_id=None):
                updated_at = now(),
                updated_by = COALESCE(%s, updated_by),
                index_status = CASE WHEN %s::text IS NOT NULL THEN 'pending' ELSE index_status END
-           WHERE id = %s RETURNING id""",
-        (title, body_md, user_id, body_md, doc_id),
+           WHERE id = %s AND (%s::timestamptz IS NULL OR updated_at = %s::timestamptz)
+           RETURNING id""",
+        (title, body_md, user_id, body_md, doc_id, expected_updated_at, expected_updated_at),
     ).fetchone()
-    return get_document(conn, row["id"]) if row else None
+    if row:
+        return get_document(conn, row["id"])
+    if expected_updated_at is not None and get_document(conn, doc_id):
+        raise StaleDocument()
+    return None
 
 
 def delete_document(conn, doc_id):
