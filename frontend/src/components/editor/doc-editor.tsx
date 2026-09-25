@@ -80,7 +80,11 @@ export function DocEditor({ spaceId, docId, pollMs = 2000, stuckAfterMs = 60_000
   }, [status, stuckKey, stuckAfterMs]);
   const stuck = status === "pending" && stuckFor === stuckKey;
 
-  const role = spaces.data?.find((s) => s.id === (doc?.space_id ?? spaceId))?.role;
+  const listedRole = spaces.data?.find((s) => s.id === (doc?.space_id ?? spaceId))?.role;
+  // A later spaces refetch that no longer lists this space must not unmount an editor holding unsaved edits.
+  const [lastRole, setLastRole] = useState(listedRole);
+  if (listedRole && listedRole !== lastRole) setLastRole(listedRole);
+  const role = listedRole ?? lastRole;
 
   if (deleted || spaces.isPending || (docId !== null && query.isPending)) return <EditorSkeleton />;
   // Only when there is no data: a failed background poll must keep the mounted editor (and its unsaved edits).
