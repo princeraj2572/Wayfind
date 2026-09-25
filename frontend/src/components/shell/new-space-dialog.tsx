@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { ApiError } from "@/lib/api";
+import { errorMessage } from "@/lib/api";
 import { useCreateSpace } from "@/lib/queries";
 
 export function NewSpaceDialog({
@@ -38,7 +38,7 @@ export function NewSpaceDialog({
       setName("");
       router.push(`/s/${space.id}`);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not create the space.");
+      setError(errorMessage(err, "Could not create the space."));
     }
   }
 
