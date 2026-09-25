@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, Plus } from "lucide-react";
+import { ChartColumn, FileText, Plus, Users } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,19 +33,35 @@ export function SpaceDocuments({ spaceId }: { spaceId: number }) {
   const editable = canEdit(space.role);
   return (
     <div className="mx-auto max-w-3xl px-6 py-8">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-2.5">
           <h1 className="text-xl font-bold tracking-tight">{space.name}</h1>
           <Badge tone="gray">{space.role}</Badge>
         </div>
-        {editable ? (
-          <Button asChild>
-            <Link href={`/s/${spaceId}/d/new`}>
-              <Plus aria-hidden className="size-4" />
-              New document
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button asChild variant="outline">
+            <Link href={`/s/${spaceId}/members`}>
+              <Users aria-hidden className="size-4" />
+              Members
             </Link>
           </Button>
-        ) : null}
+          {space.role === "admin" ? (
+            <Button asChild variant="outline">
+              <Link href={`/s/${spaceId}/analytics`}>
+                <ChartColumn aria-hidden className="size-4" />
+                Analytics
+              </Link>
+            </Button>
+          ) : null}
+          {editable ? (
+            <Button asChild>
+              <Link href={`/s/${spaceId}/d/new`}>
+                <Plus aria-hidden className="size-4" />
+                New document
+              </Link>
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       {editable ? (
