@@ -90,7 +90,7 @@ In production the app must be served over HTTPS, because the session cookie is `
 | `PUT /spaces/{id}/members`, `DELETE /spaces/{id}/members/{user_id}` | admin |
 | `GET /spaces/{id}/analytics` | admin (question statistics for the space; `days` is 7, 30 or 90) |
 | `GET /spaces/{id}/documents`, `GET /documents/{id}` | viewer and up |
-| `POST /spaces/{id}/documents`, `POST /spaces/{id}/documents/upload`, `PUT` and `DELETE /documents/{id}` | editor and up |
+| `POST /spaces/{id}/documents`, `POST /spaces/{id}/documents/upload`, `PUT` and `DELETE /documents/{id}` | editor and up (`PUT` accepts an optional `base_updated_at`; a stale one gets 409, omit it to overwrite) |
 | `POST /ask` | logged in; searches only your spaces |
 | `GET /health` | public |
 
