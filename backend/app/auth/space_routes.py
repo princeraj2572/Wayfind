@@ -30,7 +30,10 @@ class MemberIn(BaseModel):
     @field_validator("email", mode="after")
     @classmethod
     def _normalize(cls, v: str) -> str:
-        return v.strip().lower()
+        v = v.strip().lower()
+        if "\x00" in v:
+            raise ValueError("invalid email address")
+        return v
 
 
 @router.post("/spaces", status_code=201)
