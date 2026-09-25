@@ -245,3 +245,27 @@ test("a body under the cap passes through", async () => {
   vi.unstubAllEnvs();
   expect(await res.json()).toEqual({ q: "small" });
 });
+
+test("without a cookie an oversized declared body gets the 401, not a 413", async () => {
+  vi.stubEnv("MAX_REQUEST_BYTES", "1024");
+  cookieJar.clear();
+  let called = false;
+  server.use(
+    http.post("http://localhost:8000/ask", () => {
+      called = true;
+      return HttpResponse.json({});
+    }),
+  );
+  const res = await POST(
+    new Request("http://localhost:3000/api/ask", {
+      method: "POST",
+      headers: { "content-length": "99999999999", "content-type": "application/json", ...same },
+      body: "{}",
+    }),
+    ctx("ask"),
+  );
+  vi.unstubAllEnvs();
+  expect(res.status).toBe(401);
+  expect(await res.json()).toEqual({ detail: "Not logged in" });
+  expect(called).toBe(false);
+});
