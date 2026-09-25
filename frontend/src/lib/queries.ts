@@ -1,8 +1,8 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch, jsonBody } from "./api";
-import type { AskResponse, Doc, IndexStatus, Me, Member, Role, Space } from "./types";
+import type { AskResponse, Doc, IndexStatus, Me, Member, Period, Role, Space, SpaceAnalytics } from "./types";
 
 export const qk = {
   me: ["me"] as const,
@@ -10,6 +10,7 @@ export const qk = {
   docs: (spaceId: number) => ["docs", spaceId] as const,
   doc: (docId: number) => ["doc", docId] as const,
   members: (spaceId: number) => ["members", spaceId] as const,
+  analytics: (spaceId: number, days: number) => ["analytics", spaceId, days] as const,
 };
 
 export function indexPollDelay(status: IndexStatus | undefined, poll: boolean, ms = 2000): number | false {
@@ -156,3 +157,12 @@ export function useRemoveMember(spaceId: number) {
     },
   });
 }
+
+export const useSpaceAnalytics = (spaceId: number, days: Period, enabled = true) =>
+  useQuery({
+    queryKey: qk.analytics(spaceId, days),
+    queryFn: () => apiFetch<SpaceAnalytics>(`/spaces/${spaceId}/analytics?days=${days}`),
+    enabled,
+    retry: false,
+    placeholderData: keepPreviousData,
+  });
