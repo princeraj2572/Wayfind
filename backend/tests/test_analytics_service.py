@@ -157,3 +157,30 @@ def test_the_default_clock_is_the_current_time(conn):
     sid = _space(conn)
     _q(conn, "just now", [sid], when=datetime.now(timezone.utc))
     assert space_analytics(conn, sid, 7)["totals"]["questions"] == 1
+
+
+def test_rows_dated_after_today_are_excluded_so_the_daily_series_matches_the_total(conn):
+    sid = _space(conn)
+    _q(conn, "today", [sid], when=datetime(2026, 9, 25, 11, 0, tzinfo=timezone.utc))
+    _q(conn, "clock skew", [sid], when=datetime(2026, 9, 26, 0, 0, 1, tzinfo=timezone.utc))
+    r = space_analytics(conn, sid, 30, now=NOW)
+    assert r["totals"]["questions"] == 1
+    assert sum(d["questions"] for d in r["daily"]) == 1
+    assert [q["text"] for q in r["top_questions"]] == ["today"]
+
+
+def test_a_question_is_answered_in_a_space_only_if_it_cited_a_document_there(conn):
+    s1, s2 = _space(conn, "One"), _space(conn, "Two")
+    other = _doc(conn, s2, "Elsewhere")
+    _q(conn, "cited only in two", [s1, s2], hits=3, cited=[other])
+    a, b = space_analytics(conn, s1, 30, now=NOW), space_analytics(conn, s2, 30, now=NOW)
+    assert a["totals"]["unanswered"] == 1 and a["gaps"] == [{"text": "cited only in two", "count": 1}]
+    assert b["totals"]["unanswered"] == 0 and b["gaps"] == []
+
+
+def test_equally_cited_documents_with_the_same_title_have_a_stable_order(conn):
+    sid = _space(conn)
+    first, second = _doc(conn, sid, "Same"), _doc(conn, sid, "Same")
+    _q(conn, "a", [sid], cited=[second, first])
+    top = space_analytics(conn, sid, 30, now=NOW)["top_documents"]
+    assert [d["document_id"] for d in top] == sorted([first, second])
