@@ -6,6 +6,7 @@ import { Button } from "./button";
 import { Dialog, DialogClose, DialogContent, DialogTrigger } from "./dialog";
 import { ErrorState } from "./error-state";
 import { Input } from "./input";
+import { LoadingBlock } from "./skeleton";
 
 test("Button defaults to type=button and applies variants", () => {
   render(<Button variant="outline">Save</Button>);
@@ -88,4 +89,29 @@ test("Dialog description is announced, and a dialog without one does not warn", 
   expect(await screen.findByRole("dialog", { name: "No text" })).toBeInTheDocument();
   expect(warn).not.toHaveBeenCalled();
   warn.mockRestore();
+});
+
+test("ErrorState offers Retry only when given a handler, and calls it", async () => {
+  const retry = vi.fn();
+  const { rerender } = render(<ErrorState title="Couldn't load" />);
+  expect(screen.queryByRole("button", { name: "Retry" })).not.toBeInTheDocument();
+  rerender(<ErrorState title="Couldn't load" onRetry={retry} />);
+  await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+  expect(retry).toHaveBeenCalledTimes(1);
+});
+
+test("an informational ErrorState is a status, not an alert", () => {
+  render(<ErrorState tone="info" title="Read-only access" message="You can read only." />);
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(screen.getByRole("status")).toHaveTextContent("Read-only access");
+});
+
+test("LoadingBlock announces loading as a busy status", () => {
+  render(
+    <LoadingBlock>
+      <div>placeholder</div>
+    </LoadingBlock>,
+  );
+  const block = screen.getByRole("status", { name: "Loading" });
+  expect(block).toHaveAttribute("aria-busy", "true");
 });
