@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/error-state";
-import { Skeleton } from "@/components/ui/skeleton";
+import { LoadingBlock, Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { useSpaceAnalytics, useSpaces } from "@/lib/queries";
@@ -60,13 +60,13 @@ export function AnalyticsView({ spaceId }: { spaceId: number }) {
 
   if (spaces.isPending) {
     return (
-      <div className="mx-auto max-w-3xl space-y-3 px-6 py-8">
+      <LoadingBlock className="mx-auto max-w-3xl space-y-3 px-6 py-8">
         <Skeleton className="h-7 w-48" />
         <Skeleton className="h-24 w-full" />
-      </div>
+      </LoadingBlock>
     );
   }
-  if (spaces.isError) return <ErrorState title="Couldn't load your spaces" message={spaces.error.message} />;
+  if (spaces.isError) return <ErrorState title="Couldn't load your spaces" message={spaces.error.message} onRetry={() => void spaces.refetch()} />;
   if (!space) return <ErrorState title="Space not found" message="It may not exist, or you may not have access to it." />;
   if (!isAdmin) return adminsOnly;
   if (analytics.isError) {
@@ -104,10 +104,10 @@ export function AnalyticsView({ spaceId }: { spaceId: number }) {
           <p className="mt-1 text-sm text-mute">{analytics.error.message}</p>
         </div>
       ) : !data || !t ? (
-        <div className="mt-6 space-y-3">
+        <LoadingBlock className="mt-6 space-y-3">
           <Skeleton className="h-20 w-full" />
           <Skeleton className="h-32 w-full" />
-        </div>
+        </LoadingBlock>
       ) : (
         <div aria-busy={analytics.isPlaceholderData} className={cn(analytics.isPlaceholderData && "opacity-60")}>
           <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
