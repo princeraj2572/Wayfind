@@ -169,8 +169,10 @@ function EditorBody({ spaceId, doc, readOnly, stuck, onDeleted }: EditorBodyProp
         toast.success("Created");
         router.replace(`/s/${spaceId}/d/${created.id}`);
       } else {
-        await save.mutateAsync({ title: cleanTitle, body_md: body });
-        setTitle((current) => (current === title ? cleanTitle : current));
+        const saved = await save.mutateAsync({ title: cleanTitle, body_md: body });
+        // Show what the server actually stored (it may normalise the text), unless the user kept typing meanwhile.
+        setTitle((current) => (current === title ? saved.title : current));
+        setBody((current) => (current === body ? saved.body_md : current));
         toast.success("Saved");
       }
     } catch (err) {
@@ -244,7 +246,7 @@ function EditorBody({ spaceId, doc, readOnly, stuck, onDeleted }: EditorBodyProp
           className="h-11 min-w-0 flex-1 border-transparent px-2 text-2xl font-bold tracking-tight shadow-none hover:border-line"
         />
         <div className="flex items-center gap-2">
-          {dirty ? (
+          {dirty && !creating ? (
             <Button
               variant="ghost"
               onClick={() => {
@@ -283,7 +285,7 @@ function EditorBody({ spaceId, doc, readOnly, stuck, onDeleted }: EditorBodyProp
               </button>
             ))}
           </div>
-          <EditorToolbar onTool={applyTool} disabled={!showEditor} />
+          <EditorToolbar onTool={applyTool} disabled={!showEditor || creating} />
         </div>
         {doc ? (
           <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
