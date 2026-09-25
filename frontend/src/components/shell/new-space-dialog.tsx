@@ -8,10 +8,22 @@ import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api";
 import { useCreateSpace } from "@/lib/queries";
 
-export function NewSpaceDialog() {
+export function NewSpaceDialog({
+  open: controlledOpen,
+  onOpenChange,
+}: {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+} = {}) {
   const router = useRouter();
   const create = useCreateSpace();
-  const [open, setOpen] = useState(false);
+  const [innerOpen, setInnerOpen] = useState(false);
+  const controlled = controlledOpen !== undefined;
+  const open = controlled ? controlledOpen : innerOpen;
+  const setOpen = (next: boolean) => {
+    if (!controlled) setInnerOpen(next);
+    onOpenChange?.(next);
+  };
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -36,11 +48,13 @@ export function NewSpaceDialog() {
         if (!next) setError(null);
       }}
     >
-      <DialogTrigger asChild>
-        <Button variant="ghost" size="sm" className="w-full justify-start text-brand-dark">
-          + New space
-        </Button>
-      </DialogTrigger>
+      {controlled ? null : (
+        <DialogTrigger asChild>
+          <Button variant="ghost" size="sm" className="w-full justify-start text-brand-dark">
+            + New space
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent title="New space" description="A space groups documents and decides who can read or edit them.">
         <form onSubmit={onSubmit} className="space-y-3">
           <div className="space-y-1.5">
