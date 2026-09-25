@@ -45,3 +45,22 @@ CREATE TABLE IF NOT EXISTS queries (
     cited_chunk_ids int[] NOT NULL DEFAULT '{}',
     created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Document metadata for the editor: last editor and search-index status.
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS updated_by int REFERENCES users ON DELETE SET NULL;
+
+-- One-time migration: runs only while index_status is absent, so restarts never re-backfill.
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = current_schema() AND table_name = 'documents' AND column_name = 'index_status'
+    ) THEN
+        ALTER TABLE documents
+            ADD COLUMN index_status text NOT NULL DEFAULT 'pending'
+                CHECK (index_status IN ('pending', 'indexed', 'failed')),
+            ADD COLUMN indexed_at timestamptz;
+        UPDATE documents SET index_status = 'indexed', indexed_at = updated_at
+        WHERE body_md = '' OR EXISTS (SELECT 1 FROM chunks c WHERE c.document_id = documents.id);
+    END IF;
+END $$;
