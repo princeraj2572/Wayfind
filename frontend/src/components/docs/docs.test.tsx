@@ -101,3 +101,16 @@ test("an upload the server rejects shows its message", async () => {
   await userEvent.upload(await screen.findByLabelText("Upload files"), new File(["x"], "scan.pdf", { type: "application/pdf" }));
   expect(await screen.findByText(/no extractable text/i)).toBeInTheDocument();
 });
+
+test("every member sees Members; only admins see Analytics", async () => {
+  mockSpace("viewer");
+  const { unmount } = renderWithClient(<SpaceDocuments spaceId={1} />);
+  expect(await screen.findByRole("link", { name: "Members" })).toHaveAttribute("href", "/s/1/members");
+  expect(screen.queryByRole("link", { name: "Analytics" })).not.toBeInTheDocument();
+  unmount();
+
+  mockSpace("admin");
+  renderWithClient(<SpaceDocuments spaceId={1} />);
+  expect(await screen.findByRole("link", { name: "Analytics" })).toHaveAttribute("href", "/s/1/analytics");
+  expect(screen.getByRole("link", { name: "Members" })).toBeInTheDocument();
+});
