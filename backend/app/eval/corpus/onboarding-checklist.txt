@@ -1,0 +1,2 @@
+# New Hire Onboarding
+On day one, new employees collect their laptop from IT and set up their SSO account. In the first week they complete security training and meet their manager for goal setting. By day thirty they should have shipped a first small change.
