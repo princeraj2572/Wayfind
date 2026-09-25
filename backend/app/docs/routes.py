@@ -68,7 +68,8 @@ def upload_document(
     except ValueError as e:
         raise HTTPException(400, str(e))
     path = Path(file.filename)
-    doc = service.create_document(conn, space_id, path.stem, text, path.suffix.lstrip(".").lower())
+    title = path.stem.replace("\x00", "").strip() or "untitled"
+    doc = service.create_document(conn, space_id, title, text, path.suffix.lstrip(".").lower())
     background.add_task(reindex_in_background, doc["id"])
     return doc
 
