@@ -4,7 +4,7 @@ import { SendHorizontal } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
-import { ApiError } from "@/lib/api";
+import { errorMessage } from "@/lib/api";
 import { useAsk, useSpaces } from "@/lib/queries";
 import { AnswerCard, type Entry, type EntryState } from "./answer-card";
 
@@ -37,7 +37,7 @@ export function AskView({ initialSpaceId }: { initialSpaceId: number | null }) {
       const data = await ask.mutateAsync({ question: text, spaceId });
       update(id, { status: "done", data });
     } catch (err) {
-      update(id, { status: "error", message: err instanceof ApiError ? err.message : "Something went wrong. Try again." });
+      update(id, { status: "error", message: errorMessage(err, "Something went wrong. Try again.") });
     }
   }
 
