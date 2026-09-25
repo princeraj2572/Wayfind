@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/error-state";
-import { Skeleton } from "@/components/ui/skeleton";
+import { LoadingBlock, Skeleton } from "@/components/ui/skeleton";
 import { useDocuments, useSpaces } from "@/lib/queries";
 import { timeAgo } from "@/lib/time";
 import { canEdit } from "@/lib/types";
@@ -19,16 +19,16 @@ export function SpaceDocuments({ spaceId }: { spaceId: number }) {
 
   if (spaces.isPending || (docs.isPending && !docs.isError)) {
     return (
-      <div className="mx-auto max-w-3xl space-y-3 px-6 py-8">
+      <LoadingBlock className="mx-auto max-w-3xl space-y-3 px-6 py-8">
         <Skeleton className="h-7 w-48" />
         <Skeleton className="h-16 w-full" />
         <Skeleton className="h-16 w-full" />
-      </div>
+      </LoadingBlock>
     );
   }
-  if (spaces.isError) return <ErrorState title="Couldn't load your spaces" message={spaces.error.message} />;
+  if (spaces.isError) return <ErrorState title="Couldn't load your spaces" message={spaces.error.message} onRetry={() => void spaces.refetch()} />;
   if (!space) return <ErrorState title="Space not found" message="It may not exist, or you may not have access to it." />;
-  if (docs.isError) return <ErrorState title="Couldn't load documents" message={docs.error.message} />;
+  if (docs.isError) return <ErrorState title="Couldn't load documents" message={docs.error.message} onRetry={() => void docs.refetch()} />;
 
   const editable = canEdit(space.role);
   return (
