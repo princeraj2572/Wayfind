@@ -3,7 +3,7 @@
 import { Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { ApiError } from "@/lib/api";
+import { errorMessage } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { useUploadDoc } from "@/lib/queries";
 
@@ -18,7 +18,7 @@ export function UploadDropzone({ spaceId }: { spaceId: number }) {
         const doc = await upload.mutateAsync(file);
         toast.success(`Uploaded “${doc.title}”`);
       } catch (err) {
-        toast.error(`${file.name}: ${err instanceof ApiError ? err.message : "upload failed"}`);
+        toast.error(`${file.name}: ${errorMessage(err, "upload failed")}`);
       }
     }
   }
