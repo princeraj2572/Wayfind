@@ -150,7 +150,7 @@ test("an unreachable API gives a 502", async () => {
 test("refuses a segment containing an encoded slash or a backslash", async () => {
   const a = await GET(new Request("http://localhost:3000/api/x"), ctx("auth/login"));
   expect(a.status).toBe(400);
-  const b = await GET(new Request("http://localhost:3000/api/x"), ctx("documents", "a\b"));
+  const b = await GET(new Request("http://localhost:3000/api/x"), ctx("documents", "a\\b"));
   expect(b.status).toBe(400);
 });
 
