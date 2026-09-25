@@ -39,7 +39,7 @@ def list_members(conn, space_id):
 
 def _locked_admin_ids(conn, space_id):
     rows = conn.execute(
-        "SELECT user_id FROM space_members WHERE space_id = %s AND role = 'admin' FOR UPDATE",
+        "SELECT user_id FROM space_members WHERE space_id = %s AND role = 'admin' ORDER BY user_id FOR UPDATE",
         (space_id,),
     ).fetchall()
     return [r["user_id"] for r in rows]
