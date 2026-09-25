@@ -16,12 +16,11 @@ const PERIODS: Period[] = [7, 30, 90];
 
 const adminsOnly = <ErrorState title="Admins only" message="Only admins of this space can see its analytics." />;
 
-function Tile({ label, value, hint }: { label: string; value: number; hint?: string }) {
+function Tile({ label, value }: { label: string; value: number }) {
   return (
     <div role="group" aria-label={label} className="rounded-xl border border-line p-4">
-      <div className="text-2xl font-bold tracking-tight">{value}</div>
+      <div className="text-2xl font-bold tracking-tight">{value.toLocaleString("en-US")}</div>
       <div className="mt-0.5 text-xs font-medium text-mute">{label}</div>
-      {hint ? <div className="mt-1 text-[11px] text-mute">{hint}</div> : null}
     </div>
   );
 }
@@ -73,7 +72,6 @@ export function AnalyticsView({ spaceId }: { spaceId: number }) {
   if (analytics.isError) {
     const status = analytics.error instanceof ApiError ? analytics.error.status : 0;
     if (status === 403 || status === 404) return adminsOnly;
-    return <ErrorState title="Couldn't load analytics" message={analytics.error.message} />;
   }
 
   const data = analytics.data;
@@ -100,7 +98,12 @@ export function AnalyticsView({ spaceId }: { spaceId: number }) {
         </div>
       </div>
 
-      {!data || !t ? (
+      {analytics.isError ? (
+        <div role="alert" className="mt-6 rounded-xl border border-line bg-panel p-6 text-center">
+          <h2 className="text-base font-semibold">Couldn&apos;t load analytics</h2>
+          <p className="mt-1 text-sm text-mute">{analytics.error.message}</p>
+        </div>
+      ) : !data || !t ? (
         <div className="mt-6 space-y-3">
           <Skeleton className="h-20 w-full" />
           <Skeleton className="h-32 w-full" />
@@ -114,8 +117,9 @@ export function AnalyticsView({ spaceId }: { spaceId: number }) {
             <Tile label="People asking" value={t.unique_askers} />
           </div>
           <p className="mt-2 text-xs text-mute">
-            Unanswered means nothing was found, or an AI answer cited no document. This needs an AI answer: {t.with_generated_answer} of{" "}
-            {t.questions} questions had a generated answer.
+            Unanswered means nothing was found, or an AI answer cited no document of this space. Gaps are only detected for
+            questions that got an AI answer: {t.with_generated_answer.toLocaleString("en-US")} of{" "}
+            {t.questions.toLocaleString("en-US")} had one.
           </p>
 
           {t.questions === 0 ? (
