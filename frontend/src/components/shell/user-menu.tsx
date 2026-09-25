@@ -1,24 +1,14 @@
 "use client";
 
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, LogOut } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { apiFetch } from "@/lib/api";
 import { useMe } from "@/lib/queries";
+import { useSignOut } from "@/lib/use-sign-out";
 
 export function UserMenu() {
-  const router = useRouter();
-  const client = useQueryClient();
+  const signOut = useSignOut();
   const me = useMe();
   const email = me.data?.email ?? "";
-
-  async function signOut() {
-    await apiFetch("/auth/logout", { method: "POST", redirectOn401: false }).catch(() => undefined);
-    client.clear();
-    router.replace("/login");
-    router.refresh();
-  }
 
   return (
     <DropdownMenu.Root>
