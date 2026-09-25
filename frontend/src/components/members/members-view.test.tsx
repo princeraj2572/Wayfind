@@ -230,3 +230,50 @@ test("the list waits for your identity so removing yourself is always recognised
   await new Promise((r) => setTimeout(r, 100));
   expect(screen.queryByRole("list", { name: "Members" })).not.toBeInTheDocument();
 });
+
+test("adding your own email goes through the self-demotion confirmation", async () => {
+  mockApi(); // an unmocked PUT would fail the test
+  await renderReady();
+  await userEvent.type(screen.getByLabelText("Email"), "Alice@Example.com");
+  await userEvent.selectOptions(screen.getByLabelText("Role"), "viewer");
+  await userEvent.click(screen.getByRole("button", { name: "Add member" }));
+  expect(await screen.findByRole("dialog", { name: "Change your own role?" })).toBeInTheDocument();
+});
+
+test("a role change error disappears after the next successful action", async () => {
+  const state = mockApi();
+  let fail = true;
+  server.use(
+    http.put("*/api/spaces/1/members", async ({ request }) => {
+      if (fail) return HttpResponse.json({ detail: "boom" }, { status: 409 });
+      const b = (await request.json()) as { email: string; role: Role };
+      state.members.push(makeMember({ user_id: 3, email: b.email, role: b.role }));
+      return HttpResponse.json({ user_id: 3, email: b.email, role: b.role });
+    }),
+  );
+  await renderReady();
+  await userEvent.selectOptions(screen.getByLabelText("Role for bob@example.com"), "viewer");
+  expect(await screen.findByRole("alert")).toHaveTextContent("boom");
+  fail = false;
+  await userEvent.type(screen.getByLabelText("Email"), "carol@example.com");
+  await userEvent.click(screen.getByRole("button", { name: "Add member" }));
+  await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+});
+
+test("the new role is shown immediately after a change, without flashing the old one", async () => {
+  mockApi();
+  server.use(
+    http.put("*/api/spaces/1/members", () => HttpResponse.json({ user_id: 2, email: "bob@example.com", role: "admin" })),
+    // the refetch keeps answering with the old data for a while
+    http.get("*/api/spaces/1/members", async () => {
+      await delay(300);
+      return HttpResponse.json([alice, bob]);
+    }),
+  );
+  renderWithClient(<MembersView spaceId={1} />);
+  const select = await screen.findByLabelText("Role for bob@example.com", undefined, { timeout: 2000 });
+  await userEvent.selectOptions(select, "admin");
+  await waitFor(() => expect(screen.getByLabelText("Role for bob@example.com")).toHaveValue("admin"));
+  await new Promise((r) => setTimeout(r, 50));
+  expect(screen.getByLabelText("Role for bob@example.com")).toHaveValue("admin");
+});
