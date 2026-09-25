@@ -37,13 +37,14 @@ export function MembersView({ spaceId }: { spaceId: number }) {
   const [target, setTarget] = useState<Member | null>(null);
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [leaving, setLeaving] = useState(false);
+  const [demote, setDemote] = useState<{ member: Member; role: Role } | null>(null);
   const [email, setEmail] = useState("");
   const [newRole, setNewRole] = useState<Role>("editor");
   const [addError, setAddError] = useState<string | null>(null);
 
   const space = spaces.data?.find((s) => s.id === spaceId);
 
-  if (leaving || spaces.isPending || (members.isPending && !members.isError)) {
+  if (leaving || spaces.isPending || me.isPending || (members.isPending && !members.isError)) {
     return (
       <div className="mx-auto max-w-3xl space-y-3 px-6 py-8">
         <Skeleton className="h-7 w-48" />
@@ -59,6 +60,14 @@ export function MembersView({ spaceId }: { spaceId: number }) {
   const isAdmin = space.role === "admin";
 
   function changeRole(member: Member, role: Role) {
+    if (member.user_id === me.data?.id && role !== "admin") {
+      setDemote({ member, role });
+      return;
+    }
+    applyRole(member, role);
+  }
+
+  function applyRole(member: Member, role: Role) {
     setRowError(null);
     setRole.mutate(
       { email: member.email, role },
@@ -199,6 +208,28 @@ export function MembersView({ spaceId }: { spaceId: number }) {
           ) : null}
         </form>
       ) : null}
+
+      <Dialog open={demote !== null} onOpenChange={(next) => (next ? undefined : setDemote(null))}>
+        <DialogContent
+          title="Change your own role?"
+          description="You will lose the ability to manage members and see analytics for this space. Another admin would have to restore it."
+        >
+          <div className="flex justify-end gap-2">
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button
+              variant="danger"
+              onClick={() => {
+                if (demote) applyRole(demote.member, demote.role);
+                setDemote(null);
+              }}
+            >
+              Change role
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={target !== null}
