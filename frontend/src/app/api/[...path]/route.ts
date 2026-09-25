@@ -1,6 +1,6 @@
 import { clearAuthCookie, getAuthToken } from "@/lib/server/auth-cookie";
 import { unreachable } from "@/lib/server/auth-route";
-import { API_URL, UPSTREAM_TIMEOUT_MS } from "@/lib/server/config";
+import { API_URL, maxBodyBytes, UPSTREAM_TIMEOUT_MS } from "@/lib/server/config";
 import { csrfGuard } from "@/lib/server/csrf";
 
 type Ctx = { params: Promise<{ path: string[] }> };
@@ -13,8 +13,41 @@ async function forward(request: Request, ctx: Ctx): Promise<Response> {
   }
 
   const { path } = await ctx.params;
-  if (path.some((segment) => segment === "" || segment === "." || segment === "..")) {
+  if (path.some((segment) => segment === "" || segment === "." || segment === ".." || segment.includes("/") || segment.includes("\\"))) {
     return Response.json({ detail: "Bad path" }, { status: 400 });
+  }
+  // login/register/logout have their own routes; only /auth/me may go through here.
+  if (path[0] === "auth" && !(path.length === 2 && path[1] === "me")) {
+    return Response.json({ detail: "Not found" }, { status: 404 });
+  }
+
+  let body: Uint8Array<ArrayBuffer> | undefined;
+  if (!isRead) {
+    const cap = maxBodyBytes();
+    const tooLarge = () => Response.json({ detail: "Request body too large" }, { status: 413 });
+    const declared = Number(request.headers.get("content-length"));
+    if (Number.isFinite(declared) && declared > cap) return tooLarge();
+    if (request.body) {
+      const reader = request.body.getReader();
+      const chunks: Uint8Array[] = [];
+      let total = 0;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        total += value.byteLength;
+        if (total > cap) {
+          await reader.cancel().catch(() => undefined);
+          return tooLarge();
+        }
+        chunks.push(value);
+      }
+      body = new Uint8Array(total);
+      let offset = 0;
+      for (const chunk of chunks) {
+        body.set(chunk, offset);
+        offset += chunk.byteLength;
+      }
+    }
   }
 
   const token = await getAuthToken();
@@ -33,7 +66,7 @@ async function forward(request: Request, ctx: Ctx): Promise<Response> {
     upstream = await fetch(url, {
       method: request.method,
       headers,
-      body: isRead ? undefined : await request.arrayBuffer(),
+      body,
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
       redirect: "manual",
     });
