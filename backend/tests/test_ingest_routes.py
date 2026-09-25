@@ -1,3 +1,6 @@
+import pytest
+
+
 def _space(client):
     return client.post("/spaces", json={"name": "S"}).json()["id"]
 
@@ -46,3 +49,22 @@ def test_upload_unsupported_and_bad_files_are_400(client):
 def test_upload_to_missing_space_is_404(client):
     r = client.post("/spaces/999/documents/upload", files={"file": ("a.md", b"x")})
     assert r.status_code == 404
+
+
+@pytest.mark.parametrize("filename,title", [("a\x00b.md", "ab"), ("\x00.md", "untitled")])
+def test_upload_filename_with_nul_is_sanitized(client, filename, title):
+    sid = _space(client)
+    boundary = b"XBOUNDARYX"
+    body = (
+        b"--" + boundary + b"\r\n"
+        b'Content-Disposition: form-data; name="file"; filename="' + filename.encode() + b'"\r\n'
+        b"Content-Type: text/markdown\r\n\r\n# T\nhello\r\n"
+        b"--" + boundary + b"--\r\n"
+    )
+    r = client.post(
+        f"/spaces/{sid}/documents/upload",
+        content=body,
+        headers={"Content-Type": "multipart/form-data; boundary=" + boundary.decode()},
+    )
+    assert r.status_code == 201
+    assert r.json()["title"] == title
