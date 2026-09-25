@@ -9,8 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog";
 import { ErrorState } from "@/components/ui/error-state";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
-import { ApiError } from "@/lib/api";
+import { LoadingBlock, Skeleton } from "@/components/ui/skeleton";
+import { ApiError, errorMessage } from "@/lib/api";
 import { useMe, useMembers, useRemoveMember, useSetMemberRole, useSpaces } from "@/lib/queries";
 import type { Member, Role } from "@/lib/types";
 
@@ -46,16 +46,16 @@ export function MembersView({ spaceId }: { spaceId: number }) {
 
   if (leaving || spaces.isPending || me.isPending || members.isPending) {
     return (
-      <div className="mx-auto max-w-3xl space-y-3 px-6 py-8">
+      <LoadingBlock className="mx-auto max-w-3xl space-y-3 px-6 py-8">
         <Skeleton className="h-7 w-48" />
         <Skeleton className="h-14 w-full" />
         <Skeleton className="h-14 w-full" />
-      </div>
+      </LoadingBlock>
     );
   }
-  if (spaces.isError) return <ErrorState title="Couldn't load your spaces" message={spaces.error.message} />;
+  if (spaces.isError) return <ErrorState title="Couldn't load your spaces" message={spaces.error.message} onRetry={() => void spaces.refetch()} />;
   if (!space) return <ErrorState title="Space not found" message="It may not exist, or you may not have access to it." />;
-  if (members.isError) return <ErrorState title="Couldn't load members" message={members.error.message} />;
+  if (members.isError) return <ErrorState title="Couldn't load members" message={members.error.message} onRetry={() => void members.refetch()} />;
 
   const isAdmin = space.role === "admin";
 
@@ -71,7 +71,7 @@ export function MembersView({ spaceId }: { spaceId: number }) {
     setRowError(null);
     setRole.mutate(
       { email: member.email, role },
-      { onError: (err) => setRowError(err instanceof ApiError ? err.message : "Could not change the role.") },
+      { onError: (err) => setRowError(errorMessage(err, "Could not change the role.")) },
     );
   }
 
@@ -109,7 +109,7 @@ export function MembersView({ spaceId }: { spaceId: number }) {
         router.replace("/ask");
       }
     } catch (err) {
-      setRemoveError(err instanceof ApiError ? err.message : "Could not remove the member.");
+      setRemoveError(errorMessage(err, "Could not remove the member."));
     }
   }
 
