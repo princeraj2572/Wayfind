@@ -51,4 +51,4 @@ def anon_client(new_client):
 
 @pytest.fixture
 def client(new_client):
-    return new_client()
+    return new_client("alice@example.com")
