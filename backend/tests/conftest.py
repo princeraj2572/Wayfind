@@ -27,10 +27,7 @@ def conn():
 def fake_embeddings(monkeypatch):
     """Replace the real model everywhere it is imported by name."""
     for target in ("app.ingest.pipeline.embed_texts", "app.search.service.embed_texts"):
-        try:
-            monkeypatch.setattr(target, fake_embed)
-        except (ImportError, AttributeError):
-            pass  # module not created yet in earlier tasks
+        monkeypatch.setattr(target, fake_embed)
 
 
 @pytest.fixture
