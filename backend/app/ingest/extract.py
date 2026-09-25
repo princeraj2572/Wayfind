@@ -4,6 +4,10 @@ from pathlib import Path
 
 
 def extract_text(filename: str, data: bytes) -> str:
+    return _extract(filename, data).replace("\x00", "")
+
+
+def _extract(filename: str, data: bytes) -> str:
     ext = Path(filename).suffix.lower()
     if ext in (".md", ".txt"):
         try:
@@ -21,7 +25,7 @@ def _pdf(data: bytes) -> str:
     from pypdf import PdfReader
 
     try:
-        pages = [(p.extract_text() or "") for p in PdfReader(io.BytesIO(data)).pages]
+        pages = [(p.extract_text() or "").replace("\x00", "") for p in PdfReader(io.BytesIO(data)).pages]
     except Exception:
         raise ValueError("could not read PDF")
     text = "\n\n".join(p.strip() for p in pages if p.strip())
@@ -39,7 +43,7 @@ def _docx(data: bytes) -> str:
         raise ValueError("could not read DOCX")
     blocks = []
     for p in doc.paragraphs:
-        text = p.text.strip()
+        text = p.text.replace("\x00", "").strip()
         if not text:
             continue
         m = re.match(r"Heading (\d)", p.style.name or "")
