@@ -80,6 +80,8 @@ Interactive API docs are at http://localhost:8000/docs.
 
 A space you are not a member of always looks like a space that does not exist (404).
 
+Document responses include `updated_by_email` (the last editor, or null), `index_status` (`pending`, `indexed` or `failed`), `indexed_at` and `chunk_count`. Saving a document again retries a failed index.
+
 ## Tests
 
 From `backend`, with the virtual environment active (uses the `wayfind_test` database):
@@ -101,5 +103,5 @@ python -m app.eval.run_eval
 
 - No password reset, email verification, login rate limiting or token revocation before expiry
 - Uploads have no size limit
-- A failed background reindex is only logged; the user is not told
+- A failed background reindex is reported as `index_status: failed` (details are only logged); saving the document again retries it
 - The eval corpus is small (6 documents, 12 questions), so its numbers are only a rough guide
