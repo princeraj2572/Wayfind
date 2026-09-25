@@ -28,6 +28,12 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Zero specificity: component-level focus styles still win. */
+:where(a, button, select, textarea, input, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
 ::selection {
   background: var(--color-brand-tint);
 }
