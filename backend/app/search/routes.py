@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 from app.db import get_conn
 from app.search.answer import AnswerUnavailable, cited_indices, generate_answer
@@ -9,8 +9,13 @@ router = APIRouter()
 
 
 class AskIn(BaseModel):
-    question: str
+    question: str = Field(min_length=1, max_length=2000)
     space_ids: list[int]
+
+    @field_validator("question", mode="after")
+    @classmethod
+    def _strip_nul(cls, v: str) -> str:
+        return v.replace("\x00", "")
 
 
 @router.post("/ask")
