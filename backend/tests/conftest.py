@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import db
-from tests.helpers import fake_embed
+from tests.helpers import fake_embed, register
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -32,6 +32,23 @@ def fake_embeddings(monkeypatch):
 
 
 @pytest.fixture
-def client(conn, fake_embeddings):
+def new_client(conn, fake_embeddings):
     from app.main import app
-    return TestClient(app)
+
+    def factory(email=None):
+        c = TestClient(app)
+        if email:
+            c.headers["Authorization"] = f"Bearer {register(c, email)}"
+        return c
+
+    return factory
+
+
+@pytest.fixture
+def anon_client(new_client):
+    return new_client()
+
+
+@pytest.fixture
+def client(new_client):
+    return new_client()
