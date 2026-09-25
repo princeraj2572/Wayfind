@@ -5,7 +5,7 @@ const badgeVariants = cva("inline-flex items-center gap-1 rounded-full px-2 py-0
   variants: {
     tone: {
       brand: "bg-brand-tint text-brand-dark",
-      gray: "bg-[#eef0f5] text-[#4b5266]",
+      gray: "bg-chip text-mute-strong",
       amber: "bg-amber-tint text-amber-ink",
       red: "bg-danger-tint text-danger",
     },
