@@ -13,6 +13,12 @@
   --color-danger-tint: #fdecea;
   --color-amber-tint: #fdf0d5;
   --color-amber-ink: #8a5a00;
+  --color-field: #cfd3e3;
+  --color-ink-soft: #3b4256;
+  --color-mute-strong: #4b5266;
+  --color-chip: #eef0f5;
+  --color-brand-edge: #a7e3c8;
+  --color-paper: #fcfcfe;
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
