@@ -107,3 +107,19 @@ test("cross-site logout is blocked", async () => {
   expect(res.status).toBe(403);
   expect(cookieJar.has("wayfind_token")).toBe(true);
 });
+
+test("validation errors relay only their messages, never the submitted input", async () => {
+  server.use(
+    http.post("http://localhost:8000/auth/register", () =>
+      HttpResponse.json(
+        { detail: [{ type: "value_error", loc: ["body", "password"], msg: "Value error, x", input: "password123", ctx: {} }] },
+        { status: 422 },
+      ),
+    ),
+  );
+  const res = await call(register, { email: "a@b.co", password: "password123" });
+  expect(res.status).toBe(422);
+  const text = await res.text();
+  expect(JSON.parse(text)).toEqual({ detail: [{ msg: "Value error, x" }] });
+  expect(text).not.toContain("password123");
+});
