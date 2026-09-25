@@ -1,0 +1,2 @@
+# Expense Reimbursement
+Submit expenses within 45 days of purchase with an itemized receipt. Meals are reimbursed up to 60 dollars per day while traveling. Reimbursements are paid with the next payroll cycle after manager approval.
