@@ -1,0 +1,14 @@
+[
+  {"question": "How long do I have to ask for my money back?", "doc": "refund-policy"},
+  {"question": "Can I get a refund on an activated license?", "doc": "refund-policy"},
+  {"question": "What uptime do enterprise customers get?", "doc": "enterprise-sla"},
+  {"question": "What compensation do we owe if the service goes down too much?", "doc": "enterprise-sla"},
+  {"question": "What should a new hire do on their first day?", "doc": "onboarding-checklist"},
+  {"question": "When should a new employee have shipped their first change?", "doc": "onboarding-checklist"},
+  {"question": "How do I connect to the company network remotely?", "doc": "vpn-setup"},
+  {"question": "What does error E-4021 mean?", "doc": "vpn-setup"},
+  {"question": "How much can I claim for food on a business trip?", "doc": "expense-reimbursement"},
+  {"question": "By when must I submit receipts?", "doc": "expense-reimbursement"},
+  {"question": "Who do I tell if I think we were hacked?", "doc": "security-incident-response"},
+  {"question": "Which audit requires us to keep incident records?", "doc": "security-incident-response"}
+]
