@@ -1,0 +1,2 @@
+# Security Incident Response
+Report suspected security incidents to the security team immediately through the incident hotline. Do not delete evidence or reboot affected machines. The team classifies each incident by severity and keeps a written record for the SOC2 audit.
