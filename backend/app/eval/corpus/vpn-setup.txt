@@ -1,0 +1,2 @@
+# VPN Setup
+Install the corporate VPN client from the IT portal. Sign in with your SSO credentials and approve the multi-factor prompt. If you see error E-4021, your certificate has expired and you must request a new one from IT.
