@@ -1,0 +1,2 @@
+# Enterprise SLA
+Enterprise customers are guaranteed 99.9 percent monthly uptime. If uptime falls below the guarantee, the customer receives a service credit of 10 percent of the monthly fee. Priority support tickets get a first response within one hour.
