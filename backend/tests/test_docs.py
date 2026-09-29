@@ -32,3 +32,11 @@ def test_list_update_delete(client):
 
 def test_update_missing_document_is_404(client):
     assert client.put("/documents/999", json={"title": "x"}).status_code == 404
+
+
+def test_nul_bytes_are_stripped_from_document_fields(client):
+    space = make_space(client)
+    r = client.post(f"/spaces/{space['id']}/documents", json={"title": "T\u0000x", "body_md": "a\u0000b"})
+    assert r.status_code == 201
+    doc = r.json()
+    assert doc["title"] == "Tx" and doc["body_md"] == "ab"
