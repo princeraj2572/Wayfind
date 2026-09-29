@@ -48,3 +48,14 @@ def test_ask_with_no_matches_skips_claude(client, conn, space, monkeypatch):
 def test_ask_with_no_spaces_returns_no_sources(client):
     body = client.post("/ask", json={"question": "refund", "space_ids": []}).json()
     assert body["sources"] == []
+
+
+def test_ask_accepts_question_with_nul_byte(client, space, monkeypatch):
+    monkeypatch.setattr("app.search.routes.generate_answer", lambda q, chunks: "ok [1]")
+    r = client.post("/ask", json={"question": "refund\u0000 days", "space_ids": [space]})
+    assert r.status_code == 200
+
+
+def test_ask_rejects_blank_question(client, space):
+    r = client.post("/ask", json={"question": "", "space_ids": [space]})
+    assert r.status_code == 422
