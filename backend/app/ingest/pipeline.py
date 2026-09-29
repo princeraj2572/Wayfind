@@ -18,6 +18,9 @@ def reindex_document(conn, doc_id, embed=None) -> int:
     chunks = chunk_markdown(doc["body_md"])
     vectors = embed(chunks) if chunks else []
     with conn.transaction():
+        row = conn.execute("SELECT body_md FROM documents WHERE id = %s FOR UPDATE", (doc_id,)).fetchone()
+        if row is None or row["body_md"] != doc["body_md"]:
+            return 0  # deleted or edited meanwhile; the newer save queued its own reindex
         conn.execute("DELETE FROM chunks WHERE document_id = %s", (doc_id,))
         for position, (text, vec) in enumerate(zip(chunks, vectors)):
             conn.execute(
