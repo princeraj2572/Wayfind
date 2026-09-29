@@ -42,3 +42,14 @@ def test_deleting_document_removes_chunks(conn):
     reindex_document(conn, doc["id"], embed=fake_embed)
     service.delete_document(conn, doc["id"])
     assert conn.execute("SELECT count(*) AS n FROM chunks").fetchone()["n"] == 0
+
+
+def test_reindex_skips_write_when_document_changed_during_embedding(conn):
+    doc = _doc(conn, "# A\none")
+
+    def racing_embed(texts):
+        service.update_document(conn, doc["id"], body_md="# B\ntwo")
+        return fake_embed(texts)
+
+    assert reindex_document(conn, doc["id"], embed=racing_embed) == 0
+    assert conn.execute("SELECT count(*) AS n FROM chunks").fetchone()["n"] == 0
