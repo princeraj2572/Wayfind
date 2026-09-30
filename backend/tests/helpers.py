@@ -15,3 +15,9 @@ def fake_embed(texts):
         norm = math.sqrt(sum(v * v for v in vec)) or 1.0
         out.append([v / norm for v in vec])
     return out
+
+
+def register(client, email, password="password123"):
+    r = client.post("/auth/register", json={"email": email, "password": password})
+    assert r.status_code == 201, r.text
+    return r.json()["access_token"]
