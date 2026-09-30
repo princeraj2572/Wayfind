@@ -35,7 +35,7 @@ def generate_answer(question: str, chunks: list[dict], client=None) -> str:
     if client is None:
         if not config.ANTHROPIC_API_KEY:
             raise AnswerUnavailable("ANTHROPIC_API_KEY is not set")
-        client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+        client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY, timeout=30.0)
     try:
         resp = client.messages.create(
             model=config.ANSWER_MODEL,
