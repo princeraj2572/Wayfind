@@ -1,6 +1,7 @@
 import os
 
 os.environ.setdefault("DATABASE_URL", "postgresql://wayfind:wayfind@localhost:5433/wayfind_test")
+os.environ.setdefault("JWT_SECRET", "test-secret-not-for-production-use-0123456789-0123456789-0123456789")
 assert os.environ["DATABASE_URL"].rsplit("/", 1)[-1].endswith("_test"), "tests must use a *_test database"
 
 import pytest
