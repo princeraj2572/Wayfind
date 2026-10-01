@@ -115,3 +115,9 @@ def test_role_change_takes_effect_immediately(new_client):
     assert bob.put(f"/spaces/{sid}/members", json={"email": "bob@example.com", "role": "admin"}).status_code == 403
     _add(alice, sid, "bob@example.com", "admin")
     assert bob.put(f"/spaces/{sid}/members", json={"email": "bob@example.com", "role": "admin"}).status_code == 200
+
+
+@pytest.mark.parametrize("email", ["a\u0000@x.com", "bob@example.com\u0000", "\u0000"])
+def test_nul_in_member_email_is_422(client, email):
+    sid = client.post("/spaces", json={"name": "S"}).json()["id"]
+    assert _add(client, sid, email, "viewer").status_code == 422
