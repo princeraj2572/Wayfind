@@ -27,7 +27,21 @@ def reindex_document(conn, doc_id, embed=None) -> int:
                 "INSERT INTO chunks (document_id, position, text, embedding) VALUES (%s, %s, %s, %s)",
                 (doc_id, position, text, Vector(vec)),
             )
+        conn.execute(
+            "UPDATE documents SET index_status = 'indexed', indexed_at = now() WHERE id = %s", (doc_id,)
+        )
     return len(chunks)
+
+
+def _mark_failed(conn, doc_id) -> None:
+    """Best effort: a late failure must not overwrite a newer completed reindex."""
+    try:
+        conn.execute(
+            "UPDATE documents SET index_status = 'failed' WHERE id = %s AND index_status = 'pending'",
+            (doc_id,),
+        )
+    except Exception:
+        log.exception("could not mark document %s as failed", doc_id)
 
 
 def reindex_in_background(doc_id: int) -> None:
@@ -36,5 +50,6 @@ def reindex_in_background(doc_id: int) -> None:
         reindex_document(conn, doc_id)
     except Exception:
         log.exception("reindex failed for document %s", doc_id)
+        _mark_failed(conn, doc_id)
     finally:
         conn.close()
