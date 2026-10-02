@@ -1,7 +1,10 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, UploadFile
 from pathlib import Path
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, UploadFile
 from pydantic import BaseModel, field_validator
 
+from app.auth.deps import current_user
+from app.auth.roles import require_role
 from app.db import get_conn
 from app.docs import service
 from app.ingest.extract import extract_text
@@ -30,28 +33,36 @@ class DocUpdate(BaseModel):
         return v.replace("\x00", "") if v is not None else v
 
 
-def _require_space(conn, space_id):
-    if not service.get_space(conn, space_id):
-        raise HTTPException(404, "space not found")
+def _doc_for(conn, user, doc_id, min_role):
+    """A document in a space the caller cannot see looks exactly like a missing one."""
+    doc = service.get_document(conn, doc_id)
+    if not doc:
+        raise HTTPException(404, "not found")
+    require_role(conn, user, doc["space_id"], min_role)
+    return doc
 
 
 @router.post("/spaces/{space_id}/documents", status_code=201)
-def create_document(space_id: int, body: DocIn, background: BackgroundTasks, conn=Depends(get_conn)):
-    _require_space(conn, space_id)
+def create_document(
+    space_id: int, body: DocIn, background: BackgroundTasks, user=Depends(current_user), conn=Depends(get_conn)
+):
+    require_role(conn, user, space_id, "editor")
     doc = service.create_document(conn, space_id, body.title, body.body_md)
     background.add_task(reindex_in_background, doc["id"])
     return doc
 
 
 @router.get("/spaces/{space_id}/documents")
-def list_documents(space_id: int, conn=Depends(get_conn)):
-    _require_space(conn, space_id)
+def list_documents(space_id: int, user=Depends(current_user), conn=Depends(get_conn)):
+    require_role(conn, user, space_id, "viewer")
     return service.list_documents(conn, space_id)
 
 
 @router.post("/spaces/{space_id}/documents/upload", status_code=201)
-def upload_document(space_id: int, file: UploadFile, background: BackgroundTasks, conn=Depends(get_conn)):
-    _require_space(conn, space_id)
+def upload_document(
+    space_id: int, file: UploadFile, background: BackgroundTasks, user=Depends(current_user), conn=Depends(get_conn)
+):
+    require_role(conn, user, space_id, "editor")
     try:
         text = extract_text(file.filename or "", file.file.read())
     except ValueError as e:
@@ -63,25 +74,26 @@ def upload_document(space_id: int, file: UploadFile, background: BackgroundTasks
 
 
 @router.get("/documents/{doc_id}")
-def get_document(doc_id: int, conn=Depends(get_conn)):
-    doc = service.get_document(conn, doc_id)
-    if not doc:
-        raise HTTPException(404, "document not found")
-    return doc
+def get_document(doc_id: int, user=Depends(current_user), conn=Depends(get_conn)):
+    return _doc_for(conn, user, doc_id, "viewer")
 
 
 @router.put("/documents/{doc_id}")
-def update_document(doc_id: int, body: DocUpdate, background: BackgroundTasks, conn=Depends(get_conn)):
+def update_document(
+    doc_id: int, body: DocUpdate, background: BackgroundTasks, user=Depends(current_user), conn=Depends(get_conn)
+):
+    _doc_for(conn, user, doc_id, "editor")
     doc = service.update_document(conn, doc_id, body.title, body.body_md)
     if not doc:
-        raise HTTPException(404, "document not found")
+        raise HTTPException(404, "not found")
     if body.body_md is not None:
         background.add_task(reindex_in_background, doc_id)
     return doc
 
 
 @router.delete("/documents/{doc_id}", status_code=204)
-def delete_document(doc_id: int, conn=Depends(get_conn)):
+def delete_document(doc_id: int, user=Depends(current_user), conn=Depends(get_conn)):
+    _doc_for(conn, user, doc_id, "editor")
     if not service.delete_document(conn, doc_id):
-        raise HTTPException(404, "document not found")
+        raise HTTPException(404, "not found")
     return Response(status_code=204)
