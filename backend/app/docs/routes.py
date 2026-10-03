@@ -47,7 +47,7 @@ def create_document(
     space_id: int, body: DocIn, background: BackgroundTasks, user=Depends(current_user), conn=Depends(get_conn)
 ):
     require_role(conn, user, space_id, "editor")
-    doc = service.create_document(conn, space_id, body.title, body.body_md)
+    doc = service.create_document(conn, space_id, body.title, body.body_md, user_id=user["id"])
     background.add_task(reindex_in_background, doc["id"])
     return doc
 
@@ -69,7 +69,9 @@ def upload_document(
         raise HTTPException(400, str(e))
     path = Path(file.filename)
     title = path.stem.replace("\x00", "").strip() or "untitled"
-    doc = service.create_document(conn, space_id, title, text, path.suffix.lstrip(".").lower())
+    doc = service.create_document(
+        conn, space_id, title, text, path.suffix.lstrip(".").lower(), user_id=user["id"]
+    )
     background.add_task(reindex_in_background, doc["id"])
     return doc
 
@@ -84,7 +86,7 @@ def update_document(
     doc_id: int, body: DocUpdate, background: BackgroundTasks, user=Depends(current_user), conn=Depends(get_conn)
 ):
     _doc_for(conn, user, doc_id, "editor")
-    doc = service.update_document(conn, doc_id, body.title, body.body_md)
+    doc = service.update_document(conn, doc_id, body.title, body.body_md, user_id=user["id"])
     if not doc:
         raise HTTPException(404, "not found")
     if body.body_md is not None:
