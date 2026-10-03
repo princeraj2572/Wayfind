@@ -26,6 +26,13 @@ def test_init_db_can_run_repeatedly(conn):
     assert {"updated_by", "index_status", "indexed_at"} <= cols
 
 
+def test_chunks_have_an_index_on_document_id(conn):
+    row = conn.execute(
+        "SELECT indexdef FROM pg_indexes WHERE tablename = 'chunks' AND indexname = 'chunks_document_id_idx'"
+    ).fetchone()
+    assert row is not None and "document_id" in row["indexdef"]
+
+
 def test_new_document_is_pending_and_carries_the_editor(conn):
     uid = _user(conn)
     doc = service.create_document(conn, _space(conn), "T", "# T\nbody", user_id=uid)
@@ -91,7 +98,10 @@ def test_migration_backfills_existing_documents_exactly_once(conn):
     reindex_document(conn, with_chunks["id"], embed=fake_embed)
 
     conn.execute("ALTER TABLE documents DROP COLUMN index_status, DROP COLUMN indexed_at")
-    db.init_db()  # re-adds the columns and backfills
+    try:
+        db.init_db()  # re-adds the columns and backfills
+    finally:
+        db.init_db()  # never leave the shared test database without the columns
     status = {
         r["id"]: (r["index_status"], r["indexed_at"])
         for r in conn.execute("SELECT id, index_status, indexed_at FROM documents").fetchall()
