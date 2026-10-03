@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS chunks (
 );
 CREATE INDEX IF NOT EXISTS chunks_embedding_idx ON chunks USING hnsw (embedding vector_cosine_ops);
 CREATE INDEX IF NOT EXISTS chunks_tsv_idx ON chunks USING gin (tsv);
+CREATE INDEX IF NOT EXISTS chunks_document_id_idx ON chunks (document_id);
 
 CREATE TABLE IF NOT EXISTS queries (
     id serial PRIMARY KEY,
