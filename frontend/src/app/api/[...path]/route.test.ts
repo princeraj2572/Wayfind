@@ -5,11 +5,10 @@ import { beforeEach, expect, test, vi } from "vitest";
 vi.mock("next/headers", async () => (await import("@/test/fake-cookies")).headersMock);
 
 import { cookieJar } from "@/test/fake-cookies";
-import { server, useMockServer } from "@/test/server";
+import { server, setupMockServer } from "@/test/server";
 import { DELETE, GET, POST } from "./route";
 
-// eslint-disable-next-line react-hooks/rules-of-hooks -- not a React hook; MSW lifecycle helper
-useMockServer();
+setupMockServer();
 beforeEach(() => {
   cookieJar.clear();
   cookieJar.set("wayfind_token", { value: "tok" });
