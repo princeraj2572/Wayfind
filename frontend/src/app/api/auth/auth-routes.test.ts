@@ -5,13 +5,12 @@ import { beforeEach, expect, test, vi } from "vitest";
 vi.mock("next/headers", async () => (await import("@/test/fake-cookies")).headersMock);
 
 import { cookieJar } from "@/test/fake-cookies";
-import { server, useMockServer } from "@/test/server";
+import { server, setupMockServer } from "@/test/server";
 import { POST as login } from "./login/route";
 import { POST as logout } from "./logout/route";
 import { POST as register } from "./register/route";
 
-// eslint-disable-next-line react-hooks/rules-of-hooks -- not a React hook; MSW lifecycle helper
-useMockServer();
+setupMockServer();
 beforeEach(() => cookieJar.clear());
 
 const exp = Math.floor(Date.now() / 1000) + 3600;
