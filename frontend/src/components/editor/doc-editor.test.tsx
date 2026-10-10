@@ -145,24 +145,92 @@ test("Delete asks for confirmation, deletes and returns to the space", async () 
 
 test("after deleting, the editor never flashes a not found state", async () => {
   let deleted = false;
+  let getsAfterDelete = 0;
   server.use(
     http.get("*/api/spaces", () => HttpResponse.json([makeSpace()])),
-    http.get("*/api/documents/10", () =>
-      deleted ? HttpResponse.json({ detail: "not found" }, { status: 404 }) : HttpResponse.json(makeDoc()),
-    ),
+    http.get("*/api/documents/10", () => {
+      if (deleted) {
+        getsAfterDelete += 1;
+        return HttpResponse.json({ detail: "not found" }, { status: 404 });
+      }
+      return HttpResponse.json(makeDoc({ index_status: "pending", chunk_count: 0 }));
+    }),
     http.delete("*/api/documents/10", () => {
       deleted = true;
       return new HttpResponse(null, { status: 204 });
     }),
   );
-  renderWithClient(<DocEditor spaceId={1} docId={10} />);
+  renderWithClient(<DocEditor spaceId={1} docId={10} pollMs={10} />);
   await title();
   await userEvent.click(screen.getByRole("button", { name: "Delete" }));
   await userEvent.click(await screen.findByRole("button", { name: "Delete document" }));
   await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/s/1"));
   await new Promise((r) => setTimeout(r, 100));
+  expect(getsAfterDelete).toBe(0);
   expect(screen.queryByText(/Document not found/i)).toBeNull();
   expect(screen.queryByRole("alert")).toBeNull();
+});
+
+test("a failed background poll keeps the unsaved edits and does not show not found", async () => {
+  let calls = 0;
+  server.use(
+    http.get("*/api/spaces", () => HttpResponse.json([makeSpace()])),
+    http.get("*/api/documents/10", () => {
+      calls += 1;
+      if (calls === 1) return HttpResponse.json(makeDoc({ index_status: "pending", chunk_count: 0 }));
+      return HttpResponse.json({ detail: "boom" }, { status: 500 });
+    }),
+  );
+  renderWithClient(<DocEditor spaceId={1} docId={10} pollMs={200} />);
+  await userEvent.type(await title(), " v2");
+  await userEvent.type(body(), " more");
+  await waitFor(() => expect(calls).toBeGreaterThanOrEqual(2));
+  await new Promise((r) => setTimeout(r, 100));
+  expect(screen.getByRole("textbox", { name: "Title" })).toHaveValue("Refund Policy v2");
+  expect(body()).toHaveValue("# Refund Policy\nWithin 30 days. more");
+  expect(screen.queryByText(/Document not found/i)).toBeNull();
+});
+
+test("a non-404 load error says it could not load the document", async () => {
+  server.use(
+    http.get("*/api/spaces", () => HttpResponse.json([makeSpace()])),
+    http.get("*/api/documents/10", () => HttpResponse.json({ detail: "database down" }, { status: 500 })),
+  );
+  renderWithClient(<DocEditor spaceId={1} docId={10} />);
+  expect(await screen.findByRole("alert")).toHaveTextContent(/couldn't load this document/i);
+  expect(screen.queryByText(/Document not found/i)).toBeNull();
+});
+
+test("a viewer opening the new document page gets a read-only notice, not the editor", async () => {
+  server.use(http.get("*/api/spaces", () => HttpResponse.json([makeSpace({ role: "viewer" })])));
+  renderWithClient(<DocEditor spaceId={1} docId={null} />);
+  expect(await screen.findByText("Read-only access")).toBeInTheDocument();
+  expect(screen.getByText(/not create new ones/i)).toBeInTheDocument();
+  expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+  expect(screen.queryByRole("toolbar")).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+});
+
+test("a title typed while a save is in flight is not overwritten", async () => {
+  let release: () => void = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  mockApi();
+  server.use(
+    http.put("*/api/documents/10", async () => {
+      await gate;
+      return HttpResponse.json(makeDoc({ title: "Refund Policy v2" }));
+    }),
+  );
+  renderWithClient(<DocEditor spaceId={1} docId={10} />);
+  await userEvent.type(await title(), " v2");
+  await userEvent.click(save());
+  await screen.findByRole("button", { name: "Saving…" });
+  await userEvent.type(screen.getByRole("textbox", { name: "Title" }), "X");
+  release();
+  expect(await screen.findByText("Saved")).toBeInTheDocument();
+  expect(screen.getByRole("textbox", { name: "Title" })).toHaveValue("Refund Policy v2X");
 });
 
 test("viewers get a read-only page with an Ask link", async () => {
