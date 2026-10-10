@@ -82,8 +82,12 @@ export function DocEditor({ spaceId, docId, pollMs = 2000, stuckAfterMs = 60_000
   const role = spaces.data?.find((s) => s.id === (doc?.space_id ?? spaceId))?.role;
 
   if (deleted || spaces.isPending || (docId !== null && query.isPending)) return <EditorSkeleton />;
-  if (docId !== null && query.isError) {
-    return <ErrorState title="Document not found" message="It may have been deleted, or you may not have access to it." />;
+  // Only when there is no data: a failed background poll must keep the mounted editor (and its unsaved edits).
+  if (docId !== null && !doc && query.isError) {
+    if (query.error instanceof ApiError && query.error.status === 404) {
+      return <ErrorState title="Document not found" message="It may have been deleted, or you may not have access to it." />;
+    }
+    return <ErrorState title="Couldn't load this document" message={message(query.error)} />;
   }
   if (!role) return <ErrorState title="Space not found" message="It may not exist, or you may not have access to it." />;
 
@@ -156,7 +160,7 @@ function EditorBody({ spaceId, doc, readOnly, stuck, onDeleted }: EditorBodyProp
         router.replace(`/s/${spaceId}/d/${created.id}`);
       } else {
         await save.mutateAsync({ title: cleanTitle, body_md: body });
-        setTitle(cleanTitle);
+        setTitle((current) => (current === title ? cleanTitle : current));
         toast.success("Saved");
       }
     } catch (err) {
@@ -194,6 +198,15 @@ function EditorBody({ spaceId, doc, readOnly, stuck, onDeleted }: EditorBodyProp
           <MarkdownPreview text={doc.body_md} demoteHeadings />
         </div>
       </div>
+    );
+  }
+
+  if (readOnly) {
+    return (
+      <ErrorState
+        title="Read-only access"
+        message="You can read documents in this space but not create new ones."
+      />
     );
   }
 
