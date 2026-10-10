@@ -1,0 +1,270 @@
+import { fireEvent, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { http, HttpResponse } from "msw";
+import { makeDoc, makeSpace } from "@/test/fixtures";
+import { resetNav, router } from "@/test/nav";
+import { renderWithClient } from "@/test/render";
+import { server, setupMockServer } from "@/test/server";
+import { DocEditor } from "./doc-editor";
+
+vi.mock("next/navigation", async () => (await import("@/test/nav")).navigationMock);
+
+setupMockServer();
+beforeEach(resetNav);
+
+function mockApi(opts: { role?: "admin" | "editor" | "viewer"; doc?: ReturnType<typeof makeDoc> } = {}) {
+  const { role = "admin", doc = makeDoc() } = opts;
+  server.use(
+    http.get("*/api/spaces", () => HttpResponse.json([makeSpace({ role })])),
+    http.get("*/api/documents/10", () => HttpResponse.json(doc)),
+  );
+}
+
+const title = () => screen.findByRole("textbox", { name: "Title" });
+const body = () => screen.getByRole("textbox", { name: "Document body" });
+const save = () => screen.getByRole("button", { name: "Save" });
+
+test("shows the title, body, last editor and index status", async () => {
+  mockApi();
+  renderWithClient(<DocEditor spaceId={1} docId={10} />);
+  expect(await title()).toHaveValue("Refund Policy");
+  expect(body()).toHaveValue("# Refund Policy\nWithin 30 days.");
+  expect(screen.getByText(/Edited .* by alice@example.com/)).toBeInTheDocument();
+  expect(screen.getByText("Indexed ✓ · 2 chunks")).toBeInTheDocument();
+  expect(save()).toBeDisabled();
+});
+
+test("typing marks the document dirty and enables Save and Discard", async () => {
+  mockApi();
+  renderWithClient(<DocEditor spaceId={1} docId={10} />);
+  await userEvent.type(await title(), " v2");
+  expect(screen.getByText(/Unsaved changes/)).toBeInTheDocument();
+  expect(save()).toBeEnabled();
+  await userEvent.click(screen.getByRole("button", { name: "Discard" }));
+  expect(await title()).toHaveValue("Refund Policy");
+  expect(screen.queryByText(/Unsaved changes/)).not.toBeInTheDocument();
+});
+
+test("Save always sends the body together with the title", async () => {
+  // Stateful server: after the PUT, GET returns the saved document (still pending, so the editor keeps polling it).
+  let current = makeDoc();
+  let sent: unknown;
+  server.use(
+    http.get("*/api/spaces", () => HttpResponse.json([makeSpace()])),
+    http.get("*/api/documents/10", () => HttpResponse.json(current)),
+    http.put("*/api/documents/10", async ({ request }) => {
+      sent = await request.json();
+      current = makeDoc({ title: "Refund Policy v2", index_status: "pending", chunk_count: 0, updated_at: "2026-09-25T10:00:00Z" });
+      return HttpResponse.json(current);
+    }),
+  );
+  renderWithClient(<DocEditor spaceId={1} docId={10} pollMs={20} />);
+  await userEvent.type(await title(), " v2");
+  await userEvent.click(save());
+  await waitFor(() => expect(sent).toEqual({ title: "Refund Policy v2", body_md: "# Refund Policy\nWithin 30 days." }));
+  expect(await screen.findByText("Saved")).toBeInTheDocument();
+  await waitFor(() => expect(screen.queryByText(/Unsaved changes/)).not.toBeInTheDocument());
+});
+
+test("Ctrl+S saves", async () => {
+  mockApi();
+  let saved = false;
+  server.use(
+    http.put("*/api/documents/10", () => {
+      saved = true;
+      return HttpResponse.json(makeDoc({ title: "Refund Policy!" }));
+    }),
+  );
+  renderWithClient(<DocEditor spaceId={1} docId={10} />);
+  await userEvent.type(await title(), "!");
+  fireEvent.keyDown(body(), { key: "s", ctrlKey: true });
+  await waitFor(() => expect(saved).toBe(true));
+});
+
+test("a save error keeps the edits and shows the message", async () => {
+  mockApi();
+  server.use(http.put("*/api/documents/10", () => HttpResponse.json({ detail: "insufficient role" }, { status: 403 })));
+  renderWithClient(<DocEditor spaceId={1} docId={10} />);
+  await userEvent.type(await title(), "x");
+  await userEvent.click(save());
+  expect(await screen.findByText("insufficient role")).toBeInTheDocument();
+  expect(await title()).toHaveValue("Refund Policyx");
+});
+
+test("toolbar buttons edit the selected text", async () => {
+  mockApi();
+  renderWithClient(<DocEditor spaceId={1} docId={10} />);
+  await title();
+  const box = body() as HTMLTextAreaElement;
+  box.focus();
+  box.setSelectionRange(2, 8); // "Refund"
+  await userEvent.click(screen.getByRole("button", { name: "Bold" }));
+  expect(box).toHaveValue("# **Refund** Policy\nWithin 30 days.");
+  expect(box.selectionStart).toBe(4);
+  expect(box.selectionEnd).toBe(10);
+});
+
+test("view modes switch between write, split and preview", async () => {
+  mockApi();
+  renderWithClient(<DocEditor spaceId={1} docId={10} />);
+  await title();
+  expect(screen.getByRole("heading", { level: 1, name: "Refund Policy" })).toBeInTheDocument(); // split shows both
+  await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+  expect(screen.queryByRole("textbox", { name: "Document body" })).not.toBeInTheDocument();
+  expect(screen.getByRole("heading", { level: 1, name: "Refund Policy" })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Write" }));
+  expect(body()).toBeInTheDocument();
+  expect(screen.queryByRole("heading", { level: 1, name: "Refund Policy" })).not.toBeInTheDocument();
+});
+
+test("raw HTML in a document is not rendered as HTML", async () => {
+  mockApi({ doc: makeDoc({ body_md: "<script>window.hacked=1</script>\n\n<b>bold?</b>" }) });
+  renderWithClient(<DocEditor spaceId={1} docId={10} />);
+  await title();
+  expect(document.querySelector("script")).toBeNull();
+  expect(document.querySelector(".md-preview b")).toBeNull();
+});
+
+test("Delete asks for confirmation, deletes and returns to the space", async () => {
+  mockApi();
+  let deleted = false;
+  server.use(
+    http.delete("*/api/documents/10", () => {
+      deleted = true;
+      return new HttpResponse(null, { status: 204 });
+    }),
+  );
+  renderWithClient(<DocEditor spaceId={1} docId={10} />);
+  await title();
+  await userEvent.click(screen.getByRole("button", { name: "Delete" }));
+  expect(deleted).toBe(false);
+  await userEvent.click(await screen.findByRole("button", { name: "Delete document" }));
+  await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/s/1"));
+  expect(deleted).toBe(true);
+});
+
+test("after deleting, the editor never flashes a not found state", async () => {
+  let deleted = false;
+  server.use(
+    http.get("*/api/spaces", () => HttpResponse.json([makeSpace()])),
+    http.get("*/api/documents/10", () =>
+      deleted ? HttpResponse.json({ detail: "not found" }, { status: 404 }) : HttpResponse.json(makeDoc()),
+    ),
+    http.delete("*/api/documents/10", () => {
+      deleted = true;
+      return new HttpResponse(null, { status: 204 });
+    }),
+  );
+  renderWithClient(<DocEditor spaceId={1} docId={10} />);
+  await title();
+  await userEvent.click(screen.getByRole("button", { name: "Delete" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Delete document" }));
+  await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/s/1"));
+  await new Promise((r) => setTimeout(r, 100));
+  expect(screen.queryByText(/Document not found/i)).toBeNull();
+  expect(screen.queryByRole("alert")).toBeNull();
+});
+
+test("viewers get a read-only page with an Ask link", async () => {
+  mockApi({ role: "viewer" });
+  renderWithClient(<DocEditor spaceId={1} docId={10} />);
+  expect(await screen.findByRole("heading", { level: 1, name: "Refund Policy" })).toBeInTheDocument();
+  expect(screen.getByText(/read-only access/i)).toBeInTheDocument();
+  expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Ask about this" })).toHaveAttribute("href", "/ask?space=1");
+});
+
+test("a pending document is polled until it is indexed", async () => {
+  server.use(http.get("*/api/spaces", () => HttpResponse.json([makeSpace()])));
+  let calls = 0;
+  server.use(
+    http.get("*/api/documents/10", () => {
+      calls += 1;
+      return HttpResponse.json(
+        calls < 3 ? makeDoc({ index_status: "pending", chunk_count: 0 }) : makeDoc({ index_status: "indexed", chunk_count: 3 }),
+      );
+    }),
+  );
+  renderWithClient(<DocEditor spaceId={1} docId={10} pollMs={20} stuckAfterMs={5000} />);
+  expect(await screen.findByText("Indexing…")).toBeInTheDocument();
+  expect(await screen.findByText("Indexed ✓ · 3 chunks", {}, { timeout: 3000 })).toBeInTheDocument();
+});
+
+test("a document stuck in pending says so, stops polling and can be saved again", async () => {
+  server.use(http.get("*/api/spaces", () => HttpResponse.json([makeSpace()])));
+  let calls = 0;
+  server.use(
+    http.get("*/api/documents/10", () => {
+      calls += 1;
+      return HttpResponse.json(makeDoc({ index_status: "pending", chunk_count: 0 }));
+    }),
+  );
+  renderWithClient(<DocEditor spaceId={1} docId={10} pollMs={15} stuckAfterMs={80} />);
+  expect(await screen.findByText("Still indexing…", {}, { timeout: 3000 })).toBeInTheDocument();
+  expect(save()).toBeEnabled();
+  const settled = calls;
+  await new Promise((r) => setTimeout(r, 120));
+  expect(calls - settled).toBeLessThanOrEqual(1);
+});
+
+test("a failed index explains itself and Save works without any edit", async () => {
+  mockApi({ doc: makeDoc({ index_status: "failed", chunk_count: 0 }) });
+  let sent: unknown;
+  server.use(
+    http.put("*/api/documents/10", async ({ request }) => {
+      sent = await request.json();
+      return HttpResponse.json(makeDoc({ index_status: "pending", chunk_count: 0 }));
+    }),
+  );
+  renderWithClient(<DocEditor spaceId={1} docId={10} pollMs={20} />);
+  expect(await screen.findByText(/Indexing failed\. Save again to retry/)).toBeInTheDocument();
+  expect(save()).toBeEnabled();
+  await userEvent.click(save());
+  await waitFor(() => expect(sent).toEqual({ title: "Refund Policy", body_md: "# Refund Policy\nWithin 30 days." }));
+});
+
+test("a new document is created on Save and then opened", async () => {
+  server.use(http.get("*/api/spaces", () => HttpResponse.json([makeSpace()])));
+  let sent: unknown;
+  server.use(
+    http.post("*/api/spaces/1/documents", async ({ request }) => {
+      sent = await request.json();
+      return HttpResponse.json(makeDoc({ id: 42, title: "Handbook", body_md: "Hello" }), { status: 201 });
+    }),
+  );
+  renderWithClient(<DocEditor spaceId={1} docId={null} />);
+  const t = await title();
+  expect(save()).toBeDisabled();
+  await userEvent.type(t, "Handbook");
+  await userEvent.type(body(), "Hello");
+  await userEvent.click(save());
+  await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/s/1/d/42"));
+  expect(sent).toEqual({ title: "Handbook", body_md: "Hello" });
+});
+
+test("a blank title falls back to Untitled", async () => {
+  server.use(http.get("*/api/spaces", () => HttpResponse.json([makeSpace()])));
+  let sent: unknown;
+  server.use(
+    http.post("*/api/spaces/1/documents", async ({ request }) => {
+      sent = await request.json();
+      return HttpResponse.json(makeDoc({ id: 43 }), { status: 201 });
+    }),
+  );
+  renderWithClient(<DocEditor spaceId={1} docId={null} />);
+  await title();
+  await userEvent.type(body(), "Just a body");
+  await userEvent.click(save());
+  await waitFor(() => expect(sent).toEqual({ title: "Untitled", body_md: "Just a body" }));
+});
+
+test("a missing document shows a not found state", async () => {
+  server.use(
+    http.get("*/api/spaces", () => HttpResponse.json([makeSpace()])),
+    http.get("*/api/documents/10", () => HttpResponse.json({ detail: "not found" }, { status: 404 })),
+  );
+  renderWithClient(<DocEditor spaceId={1} docId={10} />);
+  expect(await screen.findByRole("alert")).toHaveTextContent(/document not found/i);
+});
