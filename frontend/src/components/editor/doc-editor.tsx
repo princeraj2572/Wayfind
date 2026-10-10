@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { toast } from "sonner";
 import { IndexBadge } from "@/components/docs/index-badge";
 import { Badge } from "@/components/ui/badge";
@@ -171,7 +172,8 @@ function EditorBody({ spaceId, doc, readOnly, stuck, onDeleted }: EditorBodyProp
   async function onDelete() {
     try {
       await remove.mutateAsync();
-      onDeleted();
+      // Commit the switch to a null query before navigating so no stale poll can re-create the removed query.
+      flushSync(() => onDeleted());
       setConfirmOpen(false);
       toast.success("Document deleted");
       router.replace(`/s/${spaceId}`);
