@@ -106,7 +106,7 @@ export function useDeleteDoc(docId: number, spaceId: number) {
     mutationFn: () => apiFetch<void>(`/documents/${docId}`, { method: "DELETE" }),
     onSuccess: () => {
       client.removeQueries({ queryKey: qk.doc(docId) });
-      return client.invalidateQueries({ queryKey: qk.docs(spaceId) });
+      void client.invalidateQueries({ queryKey: qk.docs(spaceId) });
     },
   });
 }
