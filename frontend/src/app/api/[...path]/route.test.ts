@@ -146,3 +146,102 @@ test("an unreachable API gives a 502", async () => {
   expect(res.status).toBe(502);
   expect((await res.json()).detail).toMatch(/cannot reach/i);
 });
+
+test("refuses a segment containing an encoded slash or a backslash", async () => {
+  const a = await GET(new Request("http://localhost:3000/api/x"), ctx("auth/login"));
+  expect(a.status).toBe(400);
+  const b = await GET(new Request("http://localhost:3000/api/x"), ctx("documents", "a\b"));
+  expect(b.status).toBe(400);
+});
+
+test("the static auth routes are not reachable through the catch-all", async () => {
+  let called = false;
+  server.use(
+    http.all("http://localhost:8000/auth/*", () => {
+      called = true;
+      return HttpResponse.json({ access_token: "x" });
+    }),
+  );
+  for (const last of ["login", "register", "logout"]) {
+    const res = await GET(new Request("http://localhost:3000/api/x"), ctx("auth", last));
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ detail: "Not found" });
+  }
+  expect(called).toBe(false);
+});
+
+test("auth/me still goes through the catch-all", async () => {
+  server.use(http.get("http://localhost:8000/auth/me", () => HttpResponse.json({ id: 1 })));
+  const res = await GET(new Request("http://localhost:3000/api/auth/me"), ctx("auth", "me"));
+  expect(res.status).toBe(200);
+});
+
+test("a declared content-length above the cap gets a 413 without reaching the API", async () => {
+  vi.stubEnv("MAX_REQUEST_BYTES", "1024");
+  let called = false;
+  server.use(
+    http.post("http://localhost:8000/ask", () => {
+      called = true;
+      return HttpResponse.json({});
+    }),
+  );
+  const res = await POST(
+    new Request("http://localhost:3000/api/ask", {
+      method: "POST",
+      headers: { "content-length": "5000", "content-type": "application/json", ...same },
+      body: "{}",
+    }),
+    ctx("ask"),
+  );
+  vi.unstubAllEnvs();
+  expect(res.status).toBe(413);
+  expect(await res.json()).toEqual({ detail: "Request body too large" });
+  expect(called).toBe(false);
+});
+
+test("a streamed body over the cap without a content-length gets a 413", async () => {
+  vi.stubEnv("MAX_REQUEST_BYTES", "1024");
+  let called = false;
+  server.use(
+    http.post("http://localhost:8000/ask", () => {
+      called = true;
+      return HttpResponse.json({});
+    }),
+  );
+  const chunk = new Uint8Array(600);
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(chunk);
+      controller.enqueue(chunk);
+      controller.enqueue(chunk);
+      controller.close();
+    },
+  });
+  const req = new Request("http://localhost:3000/api/ask", {
+    method: "POST",
+    headers: { "content-type": "application/octet-stream", ...same },
+    body,
+    // @ts-expect-error duplex is required for stream bodies in Node
+    duplex: "half",
+  });
+  req.headers.delete("content-length");
+  const res = await POST(req, ctx("ask"));
+  vi.unstubAllEnvs();
+  expect(res.status).toBe(413);
+  expect(called).toBe(false);
+});
+
+test("a body under the cap passes through", async () => {
+  vi.stubEnv("MAX_REQUEST_BYTES", "1024");
+  server.use(http.post("http://localhost:8000/ask", async ({ request }) => HttpResponse.json(await request.json())));
+  const res = await POST(
+    new Request("http://localhost:3000/api/ask", {
+      method: "POST",
+      headers: { "content-type": "application/json", ...same },
+      body: JSON.stringify({ q: "small" }),
+    }),
+    ctx("ask"),
+  );
+  vi.unstubAllEnvs();
+  expect(await res.json()).toEqual({ q: "small" });
+});
