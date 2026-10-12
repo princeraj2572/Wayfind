@@ -22,7 +22,14 @@ export async function authRoute(request: Request, upstreamPath: "/auth/login" | 
   }
 
   const data = await upstream.json().catch(() => null);
-  if (!upstream.ok) return Response.json(data ?? { detail: "Request failed" }, { status: upstream.status });
+  if (!upstream.ok) {
+    // Validation errors echo the submitted input (passwords); relay only their messages.
+    if (Array.isArray(data?.detail)) {
+      const detail = data.detail.map((d: { msg?: unknown }) => ({ msg: String(d?.msg ?? "Invalid value") }));
+      return Response.json({ detail }, { status: upstream.status });
+    }
+    return Response.json(data ?? { detail: "Request failed" }, { status: upstream.status });
+  }
   if (!data?.access_token) return Response.json({ detail: "Unexpected response from the API" }, { status: 502 });
 
   await setAuthCookie(data.access_token);
