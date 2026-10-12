@@ -90,6 +90,9 @@ export function DocEditor({ spaceId, docId, pollMs = 2000, stuckAfterMs = 60_000
     }
     return <ErrorState title="Couldn't load this document" message={message(query.error)} />;
   }
+  if (spaces.isError && !spaces.data) {
+    return <ErrorState title="Couldn't load your spaces" message={message(spaces.error)} />;
+  }
   if (!role) return <ErrorState title="Space not found" message="It may not exist, or you may not have access to it." />;
 
   return (
@@ -128,7 +131,9 @@ function EditorBody({ spaceId, doc, readOnly, stuck, onDeleted }: EditorBodyProp
   const baseTitle = doc?.title ?? "";
   const baseBody = doc?.body_md ?? "";
   const dirty = title !== baseTitle || body !== baseBody;
-  const busy = save.isPending || create.isPending;
+  // After create resolves the server page is still loading: keep the editor locked so nothing is created twice.
+  const creating = !doc && (create.isPending || create.isSuccess);
+  const busy = save.isPending || creating;
   const failed = doc?.index_status === "failed";
   const canSave = !readOnly && !busy && (dirty || failed || stuck);
 
@@ -229,6 +234,7 @@ function EditorBody({ spaceId, doc, readOnly, stuck, onDeleted }: EditorBodyProp
           aria-label="Title"
           value={title}
           placeholder="Untitled"
+          readOnly={creating}
           onChange={(e) => setTitle(e.target.value)}
           className="h-11 min-w-0 flex-1 border-transparent px-2 text-2xl font-bold tracking-tight shadow-none hover:border-line"
         />
@@ -295,12 +301,13 @@ function EditorBody({ spaceId, doc, readOnly, stuck, onDeleted }: EditorBodyProp
         ) : null}
       </div>
 
-      <div className={cn("grid min-h-[22rem] gap-0", showEditor && showPreview ? "md:grid-cols-2" : "grid-cols-1")}>
+      <div className={cn("grid min-h-[22rem] gap-0", showEditor && showPreview ? "lg:grid-cols-2" : "grid-cols-1")}>
         {showEditor ? (
           <Textarea
             ref={textarea}
             aria-label="Document body"
             value={body}
+            readOnly={creating}
             onChange={(e) => setBody(e.target.value)}
             spellCheck
             placeholder="Write in Markdown…"
