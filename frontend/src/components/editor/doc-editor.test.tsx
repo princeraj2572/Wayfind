@@ -338,3 +338,32 @@ test("a missing document shows a not found state", async () => {
   renderWithClient(<DocEditor spaceId={1} docId={10} />);
   expect(await screen.findByRole("alert")).toHaveTextContent(/document not found/i);
 });
+
+test("after creating, a second save cannot create again and the fields are read-only", async () => {
+  server.use(http.get("*/api/spaces", () => HttpResponse.json([makeSpace()])));
+  let posts = 0;
+  server.use(
+    http.post("*/api/spaces/1/documents", () => {
+      posts += 1;
+      return HttpResponse.json(makeDoc({ id: 42, title: "Handbook", body_md: "Hello" }), { status: 201 });
+    }),
+  );
+  renderWithClient(<DocEditor spaceId={1} docId={null} />);
+  const t = await title();
+  await userEvent.type(t, "Handbook");
+  await userEvent.type(body(), "Hello");
+  await userEvent.click(save());
+  await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/s/1/d/42"));
+  await userEvent.keyboard("{Control>}s{/Control}");
+  fireEvent.click(screen.getByRole("button", { name: /Saving|Save/ }));
+  expect(t).toHaveAttribute("readonly");
+  expect(body()).toHaveAttribute("readonly");
+  expect(posts).toBe(1);
+});
+
+test("a spaces load error is not reported as a missing space", async () => {
+  server.use(http.get("*/api/spaces", () => HttpResponse.json({ detail: "boom" }, { status: 500 })));
+  renderWithClient(<DocEditor spaceId={1} docId={null} />);
+  expect(await screen.findByText("Couldn't load your spaces")).toBeInTheDocument();
+  expect(screen.queryByText("Space not found")).not.toBeInTheDocument();
+});
