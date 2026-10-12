@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { http, HttpResponse } from "msw";
+import { delay, http, HttpResponse } from "msw";
 import { makeSpace } from "@/test/fixtures";
 import { nav, resetNav, router } from "@/test/nav";
 import { renderWithClient } from "@/test/render";
@@ -106,4 +106,44 @@ test("the account menu shows the email and signs out", async () => {
   await userEvent.click(await screen.findByRole("menuitem", { name: "Sign out" }));
   await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/login"));
   expect(loggedOut).toBe(true);
+});
+
+test("Documents links to the open space immediately while spaces are still loading", async () => {
+  nav.pathname = "/s/2";
+  server.use(
+    http.get("*/api/spaces", async () => {
+      await delay("infinite");
+      return HttpResponse.json([]);
+    }),
+    http.get("*/api/auth/me", () => HttpResponse.json({ id: 1, email: "alice@example.com" })),
+  );
+  renderWithClient(<Sidebar />);
+  expect(screen.getByRole("link", { name: "Documents" })).toHaveAttribute("href", "/s/2");
+});
+
+test("while spaces load and none is open, Documents shows a skeleton instead of a disabled item", async () => {
+  server.use(
+    http.get("*/api/spaces", async () => {
+      await delay("infinite");
+      return HttpResponse.json([]);
+    }),
+    http.get("*/api/auth/me", () => HttpResponse.json({ id: 1, email: "alice@example.com" })),
+  );
+  renderWithClient(<Sidebar />);
+  expect(screen.queryByText("Documents")).not.toBeInTheDocument();
+});
+
+test("a space creation error is cleared when the dialog is closed and reopened", async () => {
+  mockApi([]);
+  server.use(http.post("*/api/spaces", () => HttpResponse.json({ detail: "nope" }, { status: 422 })));
+  renderWithClient(<Sidebar />);
+  await userEvent.click(await screen.findByRole("button", { name: "+ New space" }));
+  await userEvent.type(await screen.findByLabelText("Space name"), "x");
+  await userEvent.click(screen.getByRole("button", { name: "Create space" }));
+  expect(await screen.findByRole("alert")).toBeInTheDocument();
+  await userEvent.keyboard("{Escape}");
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  await userEvent.click(screen.getByRole("button", { name: "+ New space" }));
+  await screen.findByRole("dialog");
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 });
