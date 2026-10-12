@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
+import { vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { Badge } from "./badge";
 import { Button } from "./button";
@@ -64,4 +65,27 @@ test("ErrorState shows title, message and a way back", () => {
   expect(screen.getByRole("alert")).toHaveTextContent("Not found");
   expect(screen.getByText("Gone.")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: /back to ask/i })).toHaveAttribute("href", "/ask");
+});
+
+test("Dialog description is announced, and a dialog without one does not warn", async () => {
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+  render(
+    <Dialog>
+      <DialogTrigger>Open with</DialogTrigger>
+      <DialogContent title="With text" description="Some text" />
+    </Dialog>,
+  );
+  await userEvent.click(screen.getByText("Open with"));
+  expect(await screen.findByRole("dialog", { name: "With text" })).toHaveAccessibleDescription("Some text");
+  cleanup();
+  render(
+    <Dialog>
+      <DialogTrigger>Open without</DialogTrigger>
+      <DialogContent title="No text" />
+    </Dialog>,
+  );
+  await userEvent.click(screen.getByText("Open without"));
+  expect(await screen.findByRole("dialog", { name: "No text" })).toBeInTheDocument();
+  expect(warn).not.toHaveBeenCalled();
+  warn.mockRestore();
 });
