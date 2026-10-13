@@ -77,6 +77,8 @@ npm run dev
 
 Open http://localhost:3000 and create an account. The web app talks to the API through its own `/api` routes and keeps your login token in an httpOnly cookie, so the browser never handles the token. By default it forwards to `http://localhost:8000`; set `API_URL` (server-side only) to change that. Checks: `npm test`, `npm run typecheck`, `npm run lint`, `npm run build`.
 
+In production the app must be served over HTTPS, because the session cookie is `Secure` when `NODE_ENV=production`.
+
 ## API overview
 
 | Route | Access |
@@ -116,6 +118,7 @@ python -m app.eval.run_eval
 
 - No password reset, email verification, login rate limiting or token revocation before expiry
 - Uploads have no size limit
+- Request bodies through the web app's API proxy are capped at 25 MB (`MAX_REQUEST_BYTES`)
 - A failed background reindex is reported as `index_status: failed` (details are only logged); saving the document body again retries it
 - Unsaved-change warnings cover closing the tab and following in-app links; browser back/forward buttons are not guarded
 - The eval corpus is small (6 documents, 12 questions), so its numbers are only a rough guide
