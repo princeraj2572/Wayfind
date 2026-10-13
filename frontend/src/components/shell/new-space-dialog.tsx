@@ -29,7 +29,13 @@ export function NewSpaceDialog() {
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setError(null);
+      }}
+    >
       <DialogTrigger asChild>
         <Button variant="ghost" size="sm" className="w-full justify-start text-brand-dark">
           + New space
