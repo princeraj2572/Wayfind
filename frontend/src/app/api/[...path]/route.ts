@@ -21,6 +21,9 @@ async function forward(request: Request, ctx: Ctx): Promise<Response> {
     return Response.json({ detail: "Not found" }, { status: 404 });
   }
 
+  const token = await getAuthToken();
+  if (!token) return Response.json({ detail: "Not logged in" }, { status: 401 });
+
   let body: Uint8Array<ArrayBuffer> | undefined;
   if (!isRead) {
     const cap = maxBodyBytes();
@@ -49,9 +52,6 @@ async function forward(request: Request, ctx: Ctx): Promise<Response> {
       }
     }
   }
-
-  const token = await getAuthToken();
-  if (!token) return Response.json({ detail: "Not logged in" }, { status: 401 });
 
   // Only these headers are forwarded; the client's own Authorization/Cookie never are.
   const headers = new Headers({ authorization: `Bearer ${token}` });
