@@ -42,7 +42,7 @@ export function AskView({ initialSpaceId }: { initialSpaceId: number | null }) {
   }
 
   return (
-    <div className="mx-auto flex h-screen max-w-3xl flex-col px-6">
+    <div className="mx-auto flex h-[calc(100dvh-3rem)] max-w-3xl md:h-dvh flex-col px-6">
       <header className="flex items-center justify-between gap-4 py-5">
         <h1 className="text-lg font-bold tracking-tight">Ask Wayfind</h1>
         <select
@@ -81,6 +81,7 @@ export function AskView({ initialSpaceId }: { initialSpaceId: number | null }) {
           <Textarea
             aria-label="Your question"
             rows={1}
+            maxLength={2000}
             value={question}
             disabled={noSpaces}
             placeholder="Ask a question…"
@@ -91,7 +92,7 @@ export function AskView({ initialSpaceId }: { initialSpaceId: number | null }) {
                 void submit();
               }
             }}
-            className="max-h-40 min-h-9 flex-1 resize-none border-0 px-2 py-1.5 shadow-none focus-visible:outline-0"
+            className="field-sizing-content max-h-40 min-h-9 flex-1 resize-none border-0 px-2 py-1.5 shadow-none focus-visible:outline-0"
           />
           <Button onClick={() => void submit()} disabled={!question.trim() || ask.isPending || noSpaces}>
             <SendHorizontal aria-hidden className="size-4" />
