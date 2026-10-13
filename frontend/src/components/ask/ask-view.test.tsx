@@ -163,6 +163,6 @@ test("a user with no spaces is told what to do", async () => {
 
 test("the question box is capped at 2000 characters", async () => {
   mockSpaces();
-  renderWithClient(<AskView />);
+  renderWithClient(<AskView initialSpaceId={null} />);
   expect(await screen.findByLabelText("Your question")).toHaveAttribute("maxlength", "2000");
 });
