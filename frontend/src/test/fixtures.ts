@@ -1,4 +1,4 @@
-import type { Doc, Space } from "@/lib/types";
+import type { Doc, Member, Space } from "@/lib/types";
 
 export const makeSpace = (o: Partial<Space> = {}): Space => ({ id: 1, name: "Support", role: "admin", ...o });
 
@@ -14,5 +14,12 @@ export const makeDoc = (o: Partial<Doc> = {}): Doc => ({
   index_status: "indexed",
   indexed_at: "2026-09-20T10:00:05Z",
   chunk_count: 2,
+  ...o,
+});
+
+export const makeMember = (o: Partial<Member> = {}): Member => ({
+  user_id: 1,
+  email: "alice@example.com",
+  role: "admin",
   ...o,
 });
