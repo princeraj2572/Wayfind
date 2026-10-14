@@ -2,13 +2,14 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch, jsonBody } from "./api";
-import type { AskResponse, Doc, IndexStatus, Me, Space } from "./types";
+import type { AskResponse, Doc, IndexStatus, Me, Member, Role, Space } from "./types";
 
 export const qk = {
   me: ["me"] as const,
   spaces: ["spaces"] as const,
   docs: (spaceId: number) => ["docs", spaceId] as const,
   doc: (docId: number) => ["doc", docId] as const,
+  members: (spaceId: number) => ["members", spaceId] as const,
 };
 
 export function indexPollDelay(status: IndexStatus | undefined, poll: boolean, ms = 2000): number | false {
@@ -120,5 +121,38 @@ export function useUploadDoc(spaceId: number) {
       return apiFetch<Doc>(`/spaces/${spaceId}/documents/upload`, { method: "POST", body: form });
     },
     onSuccess: () => client.invalidateQueries({ queryKey: qk.docs(spaceId) }),
+  });
+}
+
+export const useMembers = (spaceId: number) =>
+  useQuery({
+    queryKey: qk.members(spaceId),
+    queryFn: () => apiFetch<Member[]>(`/spaces/${spaceId}/members`),
+    retry: false,
+  });
+
+export function useSetMemberRole(spaceId: number) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { email: string; role: Role }) =>
+      apiFetch<{ user_id: number; email: string; role: Role }>(`/spaces/${spaceId}/members`, {
+        method: "PUT",
+        body: jsonBody(input),
+      }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: qk.members(spaceId) });
+      void client.invalidateQueries({ queryKey: qk.spaces });
+    },
+  });
+}
+
+export function useRemoveMember(spaceId: number) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: number) => apiFetch<void>(`/spaces/${spaceId}/members/${userId}`, { method: "DELETE" }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: qk.members(spaceId) });
+      void client.invalidateQueries({ queryKey: qk.spaces });
+    },
   });
 }
