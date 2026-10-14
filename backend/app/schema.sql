@@ -65,3 +65,11 @@ BEGIN
         WHERE body_md = '' OR EXISTS (SELECT 1 FROM chunks c WHERE c.document_id = documents.id);
     END IF;
 END $$;
+
+-- Analytics: which spaces a question searched, how many hits it found, which documents it cited.
+ALTER TABLE queries ADD COLUMN IF NOT EXISTS space_ids int[] NOT NULL DEFAULT '{}';
+ALTER TABLE queries ADD COLUMN IF NOT EXISTS result_count int NOT NULL DEFAULT 0;
+ALTER TABLE queries ADD COLUMN IF NOT EXISTS cited_document_ids int[] NOT NULL DEFAULT '{}';
+ALTER TABLE queries ADD COLUMN IF NOT EXISTS answer_generated boolean NOT NULL DEFAULT false;
+CREATE INDEX IF NOT EXISTS queries_space_ids_idx ON queries USING gin (space_ids);
+CREATE INDEX IF NOT EXISTS queries_created_at_idx ON queries (created_at);
