@@ -41,11 +41,12 @@ test("marks the current space", async () => {
   expect(within(list).getByRole("link", { name: /Support/ })).not.toHaveAttribute("aria-current");
 });
 
-test("Ask is active on the ask page and Analytics is disabled", async () => {
+test("Ask is active on the ask page and Analytics is disabled until an admin space is open", async () => {
   mockApi();
   renderWithClient(<Sidebar />);
   expect(await screen.findByRole("link", { name: "Ask" })).toHaveAttribute("aria-current", "page");
   expect(screen.getByText("Analytics").closest("[aria-disabled]")).toHaveAttribute("aria-disabled", "true");
+  expect(screen.getByText("Analytics").closest("[aria-disabled]")).toHaveAttribute("title", "Admins only");
   expect(screen.queryByRole("link", { name: /Analytics/ })).not.toBeInTheDocument();
 });
 
@@ -146,4 +147,28 @@ test("a space creation error is cleared when the dialog is closed and reopened",
   await userEvent.click(screen.getByRole("button", { name: "+ New space" }));
   await screen.findByRole("dialog");
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+
+test("Analytics links to the open space when the user is its admin", async () => {
+  nav.pathname = "/s/1";
+  mockApi();
+  renderWithClient(<Sidebar />);
+  expect(await screen.findByRole("link", { name: "Analytics" })).toHaveAttribute("href", "/s/1/analytics");
+});
+
+test("Analytics stays disabled in a space where the user is not an admin", async () => {
+  nav.pathname = "/s/2";
+  mockApi();
+  renderWithClient(<Sidebar />);
+  await screen.findByRole("list", { name: "Spaces" });
+  expect(screen.queryByRole("link", { name: "Analytics" })).not.toBeInTheDocument();
+  expect(screen.getByText("Analytics").closest("[aria-disabled]")).toHaveAttribute("title", "Admins only");
+});
+
+test("on the analytics page Analytics is the current item and Documents is not", async () => {
+  nav.pathname = "/s/1/analytics";
+  mockApi();
+  renderWithClient(<Sidebar />);
+  expect(await screen.findByRole("link", { name: "Analytics" })).toHaveAttribute("aria-current", "page");
+  expect(screen.getByRole("link", { name: "Documents" })).not.toHaveAttribute("aria-current");
 });
