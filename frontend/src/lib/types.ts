@@ -49,3 +49,30 @@ export interface Member {
   email: string;
   role: Role;
 }
+
+export type Period = 7 | 30 | 90;
+
+export interface CountedText {
+  text: string;
+  count: number;
+}
+
+export interface TopDocument {
+  document_id: number;
+  title: string;
+  citations: number;
+}
+
+export interface DailyCount {
+  date: string;
+  questions: number;
+}
+
+export interface SpaceAnalytics {
+  days: Period;
+  totals: { questions: number; answered: number; unanswered: number; unique_askers: number; with_generated_answer: number };
+  top_questions: CountedText[];
+  gaps: CountedText[];
+  top_documents: TopDocument[];
+  daily: DailyCount[];
+}
