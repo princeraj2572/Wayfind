@@ -3,8 +3,10 @@ from datetime import datetime, time, timedelta, timezone
 PERIODS = (7, 30, 90)
 
 _NORMALIZED = r"lower(btrim(regexp_replace(q.text, '\s+', ' ', 'g')))"
-_UNANSWERED = "(q.result_count = 0 OR (q.answer_generated AND cardinality(q.cited_document_ids) = 0))"
-_SCOPE = "q.created_at >= %(since)s AND %(space_id)s = ANY(q.space_ids)"
+# Unanswered for THIS space: nothing found, or an answer was generated that cited no document of this space.
+_UNANSWERED = """(q.result_count = 0 OR (q.answer_generated AND NOT EXISTS (
+    SELECT 1 FROM documents cd WHERE cd.id = ANY(q.cited_document_ids) AND cd.space_id = %(space_id)s)))"""
+_SCOPE = "q.created_at >= %(since)s AND q.created_at < %(until)s AND %(space_id)s = ANY(q.space_ids)"
 
 
 def _ranked(conn, params, extra=""):
@@ -25,6 +27,7 @@ def space_analytics(conn, space_id: int, days: int, now: datetime | None = None)
     params = {
         "space_id": space_id,
         "since": datetime.combine(start, time.min, tzinfo=timezone.utc),
+        "until": datetime.combine(today + timedelta(days=1), time.min, tzinfo=timezone.utc),
         "start": start,
         "end": today,
     }
@@ -46,7 +49,7 @@ def space_analytics(conn, space_id: int, days: int, now: datetime | None = None)
             JOIN documents d ON d.id = cited.doc_id AND d.space_id = %(space_id)s
             WHERE {_SCOPE}
             GROUP BY d.id, d.title
-            ORDER BY citations DESC, d.title
+            ORDER BY citations DESC, d.title, d.id
             LIMIT 10""",
         params,
     ).fetchall()
@@ -56,7 +59,7 @@ def space_analytics(conn, space_id: int, days: int, now: datetime | None = None)
            FROM generate_series(%(start)s::date, %(end)s::date, interval '1 day') AS g(day)
            LEFT JOIN queries q
              ON (q.created_at AT TIME ZONE 'UTC')::date = g.day::date
-            AND q.created_at >= %(since)s
+            AND q.created_at >= %(since)s AND q.created_at < %(until)s
             AND %(space_id)s = ANY(q.space_ids)
            GROUP BY g.day ORDER BY g.day""",
         params,
