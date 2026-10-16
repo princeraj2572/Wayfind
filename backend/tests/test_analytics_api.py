@@ -82,3 +82,15 @@ def test_questions_about_other_spaces_do_not_leak_into_this_one(world):
     body = alice.get(f"/spaces/{world['sid']}/analytics").json()
     assert body["totals"]["questions"] == 0
     assert "layoffs" not in repr(body) and "Secret Plans" not in repr(body)
+
+
+def test_citations_survive_a_reindex_of_the_document(world):
+    alice, sid = world["clients"]["admin"], world["sid"]
+    doc = alice.post(
+        f"/spaces/{sid}/documents", json={"title": "Refunds", "body_md": "# Refunds\nRefund within 30 days of purchase."}
+    ).json()["id"]
+    alice.post("/ask", json={"question": "Refund days?", "space_ids": [sid]})
+    r = alice.put(f"/documents/{doc}", json={"title": "Refunds", "body_md": "# Refunds\nRefund within 14 days."})
+    assert r.status_code == 200
+    body = alice.get(f"/spaces/{sid}/analytics").json()
+    assert body["top_documents"] == [{"document_id": doc, "title": "Refunds", "citations": 1}]
