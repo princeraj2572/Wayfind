@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { http, HttpResponse } from "msw";
+import { delay, http, HttpResponse } from "msw";
 import type { Member, Role } from "@/lib/types";
 import { makeMember, makeSpace } from "@/test/fixtures";
 import { resetNav, router } from "@/test/nav";
@@ -104,6 +104,7 @@ test("demoting the last admin shows the server message and keeps the role", asyn
   );
   await renderReady();
   await userEvent.selectOptions(screen.getByLabelText("Role for alice@example.com"), "viewer");
+  await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Change role" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("a space must keep at least one admin");
   expect(screen.getByLabelText("Role for alice@example.com")).toHaveValue("admin");
 });
@@ -186,4 +187,46 @@ test("emails are shown as text, never as markup", async () => {
   const list = await renderReady();
   expect(list.getByText("<img src=x onerror=alert(1)>@example.com")).toBeInTheDocument();
   expect(document.querySelector("img[src='x']")).toBeNull();
+});
+
+test("demoting yourself asks first and sends nothing until you confirm", async () => {
+  const state = mockApi();
+  let body: unknown = null;
+  server.use(
+    http.put("*/api/spaces/1/members", async ({ request }) => {
+      body = await request.json();
+      state.members[0] = { ...alice, role: "viewer" };
+      return HttpResponse.json({ user_id: 1, email: "alice@example.com", role: "viewer" });
+    }),
+  );
+  await renderReady();
+  await userEvent.selectOptions(screen.getByLabelText("Role for alice@example.com"), "viewer");
+  const dialog = await screen.findByRole("dialog", { name: "Change your own role?" });
+  expect(dialog).toHaveTextContent(/lose the ability to manage/i);
+  expect(body).toBeNull();
+  await userEvent.click(within(dialog).getByRole("button", { name: "Change role" }));
+  await waitFor(() => expect(body).toEqual({ email: "alice@example.com", role: "viewer" }));
+});
+
+test("cancelling a self-demotion changes nothing", async () => {
+  mockApi(); // an unmocked PUT would fail the test
+  await renderReady();
+  await userEvent.selectOptions(screen.getByLabelText("Role for alice@example.com"), "editor");
+  await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Cancel" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  expect(screen.getByLabelText("Role for alice@example.com")).toHaveValue("admin");
+});
+
+test("the list waits for your identity so removing yourself is always recognised", async () => {
+  server.use(
+    http.get("*/api/spaces", () => HttpResponse.json([makeSpace()])),
+    http.get("*/api/auth/me", async () => {
+      await delay("infinite");
+      return HttpResponse.json({ id: 1, email: "alice@example.com" });
+    }),
+    http.get("*/api/spaces/1/members", () => HttpResponse.json([alice, bob])),
+  );
+  renderWithClient(<MembersView spaceId={1} />);
+  await new Promise((r) => setTimeout(r, 100));
+  expect(screen.queryByRole("list", { name: "Members" })).not.toBeInTheDocument();
 });
