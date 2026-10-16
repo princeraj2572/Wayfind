@@ -81,3 +81,15 @@ test("New space in the menu opens the dialog and creating a space opens it", asy
   await userEvent.click(within(dialog).getByRole("button", { name: "Create space" }));
   await waitFor(() => expect(router.push).toHaveBeenCalledWith("/s/9"));
 });
+
+test("closing the New space dialog returns focus to the menu button", async () => {
+  mockApi();
+  renderWithClient(<MobileNav />);
+  const menu = screen.getByRole("button", { name: "Menu" });
+  await userEvent.click(menu);
+  await userEvent.click(await screen.findByRole("menuitem", { name: "New space" }));
+  await screen.findByRole("dialog", { name: "New space" });
+  await userEvent.keyboard("{Escape}");
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  await waitFor(() => expect(menu).toHaveFocus());
+});
