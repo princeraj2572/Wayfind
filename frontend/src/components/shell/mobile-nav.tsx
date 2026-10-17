@@ -4,7 +4,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { LogOut, Menu } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Brand } from "@/components/brand";
 import { useSignOut } from "@/lib/use-sign-out";
 import { useSpaces } from "@/lib/queries";
@@ -20,6 +20,7 @@ export function MobileNav() {
   const list = spaces.data ?? [];
   const pathname = usePathname();
   const [newSpaceOpen, setNewSpaceOpen] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
   const currentId = /^\/s\/(\d+)/.exec(pathname)?.[1];
   const currentSpace = list.find((s) => String(s.id) === currentId);
 
@@ -30,6 +31,7 @@ export function MobileNav() {
       </Link>
       <DropdownMenu.Root>
         <DropdownMenu.Trigger
+          ref={menuButton}
           aria-label="Menu"
           className="grid size-9 place-items-center rounded-lg hover:bg-panel focus-visible:outline-2 focus-visible:outline-brand"
         >
@@ -82,7 +84,15 @@ export function MobileNav() {
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
       </DropdownMenu.Root>
-      <NewSpaceDialog open={newSpaceOpen} onOpenChange={setNewSpaceOpen} />
+      <NewSpaceDialog
+        open={newSpaceOpen}
+        onOpenChange={setNewSpaceOpen}
+        onCloseAutoFocus={(event) => {
+          // The menu item that opened the dialog is gone, so return focus to the menu button.
+          event.preventDefault();
+          menuButton.current?.focus();
+        }}
+      />
     </header>
   );
 }
