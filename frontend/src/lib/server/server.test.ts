@@ -43,3 +43,14 @@ test("csrfGuard returns a 403 response only when blocked", async () => {
   expect(blocked?.status).toBe(403);
   expect(await blocked?.json()).toEqual({ detail: "Cross-site request blocked" });
 });
+
+test("the cookie lifetime is capped at 30 days", () => {
+  expect(cookieMaxAge(tokenWith({ exp: 1400 + 10 * 365 * 24 * 3600 }), 1400)).toBe(30 * 24 * 3600);
+});
+
+test.each([["-5"], ["0"], ["abc"], [""]])("MAX_REQUEST_BYTES=%j falls back to 25 MB", async (value) => {
+  vi.stubEnv("MAX_REQUEST_BYTES", value);
+  const { maxBodyBytes } = await import("./config");
+  expect(maxBodyBytes()).toBe(25 * 1024 * 1024);
+  vi.unstubAllEnvs();
+});
