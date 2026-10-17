@@ -140,7 +140,14 @@ export function useSetMemberRole(spaceId: number) {
         method: "PUT",
         body: jsonBody(input),
       }),
-    onSuccess: () => {
+    onSuccess: (member) => {
+      // Show the new role at once; the refetch below then confirms it.
+      client.setQueryData<Member[]>(qk.members(spaceId), (old) => {
+        if (!old) return old;
+        return old.some((m) => m.user_id === member.user_id)
+          ? old.map((m) => (m.user_id === member.user_id ? { ...m, role: member.role } : m))
+          : [...old, member];
+      });
       void client.invalidateQueries({ queryKey: qk.members(spaceId) });
       void client.invalidateQueries({ queryKey: qk.spaces });
     },
