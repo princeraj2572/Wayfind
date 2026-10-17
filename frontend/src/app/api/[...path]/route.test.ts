@@ -269,3 +269,35 @@ test("without a cookie an oversized declared body gets the 401, not a 413", asyn
   expect(await res.json()).toEqual({ detail: "Not logged in" });
   expect(called).toBe(false);
 });
+
+test.each([["docs"], ["redoc"], ["openapi.json"], ["metrics"], ["health"]])(
+  "only the app's API areas are reachable: %s is not",
+  async (first) => {
+    let called = false;
+    server.use(
+      http.all("http://localhost:8000/*", () => {
+        called = true;
+        return HttpResponse.json({});
+      }),
+    );
+    const res = await GET(new Request("http://localhost:3000/api/x"), ctx(first));
+    expect(res.status).toBe(404);
+    expect(called).toBe(false);
+  },
+);
+
+test("a 205 response has no body", async () => {
+  server.use(http.delete("http://localhost:8000/documents/1", () => new HttpResponse(null, { status: 205 })));
+  const res = await DELETE(new Request("http://localhost:3000/api/documents/1", { method: "DELETE", headers: same }), ctx("documents", "1"));
+  expect(res.status).toBe(205);
+  expect(await res.text()).toBe("");
+});
+
+test("an upstream redirect becomes a 502 instead of a broken redirect without Location", async () => {
+  server.use(
+    http.get("http://localhost:8000/spaces", () => new HttpResponse(null, { status: 307, headers: { location: "http://localhost:8000/spaces/" } })),
+  );
+  const res = await GET(new Request("http://localhost:3000/api/spaces"), ctx("spaces"));
+  expect(res.status).toBe(502);
+  expect(res.headers.get("location")).toBeNull();
+});
