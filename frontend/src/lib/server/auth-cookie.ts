@@ -1,11 +1,11 @@
 import { cookies } from "next/headers";
-import { DEFAULT_MAX_AGE, TOKEN_COOKIE } from "./config";
+import { DEFAULT_MAX_AGE, MAX_COOKIE_AGE, TOKEN_COOKIE } from "./config";
 
 /** Cookie lifetime from the JWT exp claim (read only for the lifetime; FastAPI verifies the token). */
 export function cookieMaxAge(token: string, nowSeconds = Math.floor(Date.now() / 1000)): number {
   try {
     const payload = JSON.parse(Buffer.from(token.split(".")[1] ?? "", "base64url").toString("utf8"));
-    if (typeof payload.exp === "number") return Math.max(0, payload.exp - nowSeconds);
+    if (typeof payload.exp === "number") return Math.min(MAX_COOKIE_AGE, Math.max(0, payload.exp - nowSeconds));
   } catch {
     /* fall through to the default */
   }
