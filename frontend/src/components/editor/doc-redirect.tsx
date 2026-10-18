@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { ErrorState } from "@/components/ui/error-state";
-import { Skeleton } from "@/components/ui/skeleton";
+import { LoadingBlock, Skeleton } from "@/components/ui/skeleton";
+import { ApiError } from "@/lib/api";
 import { useDocument } from "@/lib/queries";
 
 export function DocRedirect({ docId }: { docId: number }) {
@@ -16,12 +17,17 @@ export function DocRedirect({ docId }: { docId: number }) {
   }, [target, router]);
 
   if (doc.isError) {
-    return <ErrorState title="Document not found" message="It may have been deleted, or you may not have access to it." />;
+    if (doc.error instanceof ApiError && (doc.error.status === 404 || doc.error.status === 403)) {
+      return <ErrorState title="Document not found" message="It may have been deleted, or you may not have access to it." />;
+    }
+    return (
+      <ErrorState title="Couldn't load this document" message={doc.error.message} onRetry={() => void doc.refetch()} />
+    );
   }
   return (
-    <div className="mx-auto max-w-3xl space-y-3 px-6 py-8">
+    <LoadingBlock className="mx-auto max-w-3xl space-y-3 px-6 py-8">
       <Skeleton className="h-7 w-64" />
       <Skeleton className="h-40 w-full" />
-    </div>
+    </LoadingBlock>
   );
 }
