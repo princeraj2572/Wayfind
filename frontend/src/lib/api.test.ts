@@ -86,3 +86,10 @@ test.each([
 ])("errorText(%j) reads %s", (detail, expected) => {
   expect(errorText(detail, "fallback")).toBe(expected);
 });
+
+test("errorMessage uses an ApiError's message and the fallback for anything else", async () => {
+  const { ApiError, errorMessage } = await import("./api");
+  expect(errorMessage(new ApiError(409, "a space must keep at least one admin"), "fallback")).toBe("a space must keep at least one admin");
+  expect(errorMessage(new Error("internal detail"), "fallback")).toBe("fallback");
+  expect(errorMessage("weird", "fallback")).toBe("fallback");
+});
