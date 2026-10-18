@@ -3,6 +3,8 @@ import { unreachable } from "@/lib/server/auth-route";
 import { API_URL, maxBodyBytes, UPSTREAM_TIMEOUT_MS } from "@/lib/server/config";
 import { csrfGuard } from "@/lib/server/csrf";
 
+const ALLOWED_AREAS = new Set(["spaces", "documents", "ask", "auth"]);
+
 type Ctx = { params: Promise<{ path: string[] }> };
 
 async function forward(request: Request, ctx: Ctx): Promise<Response> {
@@ -16,8 +18,9 @@ async function forward(request: Request, ctx: Ctx): Promise<Response> {
   if (path.some((segment) => segment === "" || segment === "." || segment === ".." || segment.includes("/") || segment.includes("\\"))) {
     return Response.json({ detail: "Bad path" }, { status: 400 });
   }
+  // Only the app's own API areas are reachable (not FastAPI's /docs, /redoc or /openapi.json).
   // login/register/logout have their own routes; only /auth/me may go through here.
-  if (path[0] === "auth" && !(path.length === 2 && path[1] === "me")) {
+  if (!ALLOWED_AREAS.has(path[0]) || (path[0] === "auth" && !(path.length === 2 && path[1] === "me"))) {
     return Response.json({ detail: "Not found" }, { status: 404 });
   }
 
@@ -76,10 +79,13 @@ async function forward(request: Request, ctx: Ctx): Promise<Response> {
 
   if (upstream.status === 401) await clearAuthCookie();
 
+  // The API never redirects on purpose; a redirect without its Location would only break the browser.
+  if (upstream.status >= 300 && upstream.status < 400 && upstream.status !== 304) return unreachable();
+
   const out = new Headers();
   const contentType = upstream.headers.get("content-type");
   if (contentType) out.set("content-type", contentType);
-  const noBody = upstream.status === 204 || upstream.status === 304;
+  const noBody = upstream.status === 204 || upstream.status === 205 || upstream.status === 304;
   return new Response(noBody ? null : upstream.body, { status: upstream.status, headers: out });
 }
 
