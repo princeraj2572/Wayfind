@@ -33,6 +33,9 @@ export function errorText(detail: unknown, fallback: string): string {
   return fallback;
 }
 
+/** The API's message for an ApiError; any other error gets the fallback (never leak internals). */
+export const errorMessage = (err: unknown, fallback: string): string => (err instanceof ApiError ? err.message : fallback);
+
 export const jsonBody = (value: unknown) => JSON.stringify(value);
 
 export async function apiFetch<T>(path: string, init: ApiInit = {}): Promise<T> {
