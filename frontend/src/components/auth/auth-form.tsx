@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ApiError, apiFetch, jsonBody } from "@/lib/api";
+import { apiFetch, errorMessage, jsonBody } from "@/lib/api";
 import { safeNext } from "@/lib/safe-next";
 
 export function AuthForm({ mode }: { mode: "login" | "register" }) {
@@ -33,7 +33,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
       router.replace(next ?? "/ask");
       router.refresh();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Something went wrong. Try again.");
+      setError(errorMessage(err, "Something went wrong. Try again."));
       setPending(false);
     }
   }
