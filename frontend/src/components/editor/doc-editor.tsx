@@ -12,7 +12,7 @@ import { Dialog, DialogClose, DialogContent, DialogTrigger } from "@/components/
 import { ErrorState } from "@/components/ui/error-state";
 import { Input, Textarea } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ApiError } from "@/lib/api";
+import { ApiError, errorMessage } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import {
   bold,
@@ -44,7 +44,7 @@ const TOOL_FUNCTIONS: Record<ToolName, (text: string, start: number, end: number
   code: inlineCode,
 };
 
-const message = (err: unknown) => (err instanceof ApiError ? err.message : "Something went wrong. Try again.");
+const message = (err: unknown) => errorMessage(err, "Something went wrong. Try again.");
 
 export interface DocEditorProps {
   spaceId: number;
@@ -88,7 +88,7 @@ export function DocEditor({ spaceId, docId, pollMs = 2000, stuckAfterMs = 60_000
     if (query.error instanceof ApiError && query.error.status === 404) {
       return <ErrorState title="Document not found" message="It may have been deleted, or you may not have access to it." />;
     }
-    return <ErrorState title="Couldn't load this document" message={message(query.error)} />;
+    return <ErrorState title="Couldn't load this document" message={message(query.error)} onRetry={() => void query.refetch()} />;
   }
   if (spaces.isError && !spaces.data) {
     return <ErrorState title="Couldn't load your spaces" message={message(spaces.error)} />;
@@ -211,6 +211,7 @@ function EditorBody({ spaceId, doc, readOnly, stuck, onDeleted }: EditorBodyProp
   if (readOnly) {
     return (
       <ErrorState
+        tone="info"
         title="Read-only access"
         message="You can read documents in this space but not create new ones."
       />
