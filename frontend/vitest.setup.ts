@@ -1,5 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
+import { toast } from "sonner";
 import { afterEach } from "vitest";
 
 if (typeof window !== "undefined") {
@@ -14,4 +15,7 @@ if (typeof window !== "undefined") {
   } as unknown as typeof ResizeObserver;
 }
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  toast.dismiss(); // the toast store is module-level and would leak between tests
+});
