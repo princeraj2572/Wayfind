@@ -367,3 +367,14 @@ test("a spaces load error is not reported as a missing space", async () => {
   expect(await screen.findByText("Couldn't load your spaces")).toBeInTheDocument();
   expect(screen.queryByText("Space not found")).not.toBeInTheDocument();
 });
+
+test("a spaces refetch that no longer lists the space keeps the mounted editor and its edits", async () => {
+  mockApi();
+  const { client } = renderWithClient(<DocEditor spaceId={1} docId={10} />);
+  await userEvent.type(await title(), " v2");
+  server.use(http.get("*/api/spaces", () => HttpResponse.json([])));
+  await client.invalidateQueries({ queryKey: ["spaces"] });
+  await new Promise((r) => setTimeout(r, 50));
+  expect(screen.queryByText("Space not found")).not.toBeInTheDocument();
+  expect(screen.getByRole("textbox", { name: "Title" })).toHaveValue("Refund Policy v2");
+});
