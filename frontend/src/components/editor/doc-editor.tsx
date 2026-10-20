@@ -202,7 +202,7 @@ function EditorBody({ spaceId, doc, readOnly, stuck, onDeleted }: EditorBodyProp
           </Button>
         </div>
         <Meta doc={doc} stuck={stuck} dirty={false} />
-        <p className="mt-4 rounded-lg bg-panel px-3 py-2 text-sm text-[#4b5266]">
+        <p className="mt-4 rounded-lg bg-panel px-3 py-2 text-sm text-mute-strong">
           You have read-only access to this space. Ask a space admin if you need to edit documents.
         </p>
         <div className="mt-6">
@@ -270,14 +270,14 @@ function EditorBody({ spaceId, doc, readOnly, stuck, onDeleted }: EditorBodyProp
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-y border-line py-2">
         <div className="flex items-center gap-3">
-          <div role="group" aria-label="View mode" className="inline-flex overflow-hidden rounded-lg border border-[#cfd3e3] text-xs">
+          <div role="group" aria-label="View mode" className="inline-flex overflow-hidden rounded-lg border border-field text-xs">
             {(["write", "split", "preview"] as const).map((m) => (
               <button
                 key={m}
                 type="button"
                 aria-pressed={mode === m}
                 onClick={() => setMode(m)}
-                className={cn("px-3 py-1.5", mode === m ? "bg-brand-tint font-semibold text-brand-dark" : "text-[#3b4256] hover:bg-panel")}
+                className={cn("px-3 py-1.5", mode === m ? "bg-brand-tint font-semibold text-brand-dark" : "text-ink-soft hover:bg-panel")}
               >
                 {m === "write" ? "Write" : m === "split" ? "Split" : "Preview"}
               </button>
@@ -320,7 +320,7 @@ function EditorBody({ spaceId, doc, readOnly, stuck, onDeleted }: EditorBodyProp
           />
         ) : null}
         {showPreview ? (
-          <div className="min-w-0 bg-[#fcfcfe] px-6 py-4">
+          <div className="min-w-0 bg-paper px-6 py-4">
             <MarkdownPreview text={body} />
           </div>
         ) : null}
