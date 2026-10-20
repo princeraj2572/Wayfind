@@ -37,7 +37,7 @@ export function UploadDropzone({ spaceId }: { spaceId: number }) {
       }}
       className={cn(
         "flex items-center gap-3 rounded-xl border-[1.5px] border-dashed px-4 py-3 text-sm transition-colors",
-        over ? "border-brand bg-brand-tint" : "border-[#a7e3c8] bg-brand-soft",
+        over ? "border-brand bg-brand-tint" : "border-brand-edge bg-brand-soft",
       )}
     >
       <Upload aria-hidden className="size-5 shrink-0 text-brand-dark" />
