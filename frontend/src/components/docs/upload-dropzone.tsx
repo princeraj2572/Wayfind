@@ -7,6 +7,8 @@ import { errorMessage } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { useUploadDoc } from "@/lib/queries";
 
+const SUPPORTED = /\.(md|txt|pdf|docx)$/i;
+
 export function UploadDropzone({ spaceId }: { spaceId: number }) {
   const upload = useUploadDoc(spaceId);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -14,6 +16,10 @@ export function UploadDropzone({ spaceId }: { spaceId: number }) {
 
   async function handle(files: File[]) {
     for (const file of files) {
+      if (!SUPPORTED.test(file.name)) {
+        toast.error(`${file.name}: unsupported file type`);
+        continue;
+      }
       try {
         const doc = await upload.mutateAsync(file);
         toast.success(`Uploaded “${doc.title}”`);
@@ -29,7 +35,10 @@ export function UploadDropzone({ spaceId }: { spaceId: number }) {
         e.preventDefault();
         setOver(true);
       }}
-      onDragLeave={() => setOver(false)}
+      onDragLeave={(e) => {
+        // Moving over a child element fires dragleave on the zone too; only clear when really leaving it.
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(false);
+      }}
       onDrop={(e) => {
         e.preventDefault();
         setOver(false);
