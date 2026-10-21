@@ -94,7 +94,9 @@ export function useCreateDoc(spaceId: number) {
 export function useSaveDoc(docId: number, spaceId: number) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (input: DocInput) => apiFetch<Doc>(`/documents/${docId}`, { method: "PUT", body: jsonBody(input) }),
+    // base_updated_at makes the server refuse the save (409) if the document changed since that version.
+    mutationFn: (input: DocInput & { base_updated_at?: string }) =>
+      apiFetch<Doc>(`/documents/${docId}`, { method: "PUT", body: jsonBody(input) }),
     onSuccess: (doc) => {
       client.setQueryData(qk.doc(docId), doc);
       return client.invalidateQueries({ queryKey: qk.docs(spaceId) });
