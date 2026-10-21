@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, UploadFile
@@ -26,6 +27,8 @@ class DocIn(BaseModel):
 class DocUpdate(BaseModel):
     title: str | None = None
     body_md: str | None = None
+    # The updated_at the editor last saw; if the document moved on since, the save is refused (409).
+    base_updated_at: datetime | None = None
 
     @field_validator("title", "body_md", mode="after")
     @classmethod
@@ -86,7 +89,12 @@ def update_document(
     doc_id: int, body: DocUpdate, background: BackgroundTasks, user=Depends(current_user), conn=Depends(get_conn)
 ):
     _doc_for(conn, user, doc_id, "editor")
-    doc = service.update_document(conn, doc_id, body.title, body.body_md, user_id=user["id"])
+    try:
+        doc = service.update_document(
+            conn, doc_id, body.title, body.body_md, user_id=user["id"], expected_updated_at=body.base_updated_at
+        )
+    except service.StaleDocument:
+        raise HTTPException(409, "This document was changed by someone else since you opened it.")
     if not doc:
         raise HTTPException(404, "not found")
     if body.body_md is not None:
