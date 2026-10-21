@@ -93,3 +93,14 @@ test("closing the New space dialog returns focus to the menu button", async () =
   await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   await waitFor(() => expect(menu).toHaveFocus());
 });
+
+test("the mobile menu also lets the user pick a theme", async () => {
+  mockApi();
+  renderWithClient(<MobileNav />);
+  await userEvent.click(screen.getByRole("button", { name: "Menu" }));
+  await userEvent.click(await screen.findByRole("menuitemradio", { name: "Dark" }));
+  expect(document.documentElement.dataset.theme).toBe("dark");
+  expect(localStorage.getItem("wayfind_theme")).toBe("dark");
+  localStorage.clear();
+  delete document.documentElement.dataset.theme;
+});
