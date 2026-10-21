@@ -61,7 +61,7 @@ test("Save always sends the body together with the title", async () => {
   renderWithClient(<DocEditor spaceId={1} docId={10} pollMs={20} />);
   await userEvent.type(await title(), " v2");
   await userEvent.click(save());
-  await waitFor(() => expect(sent).toEqual({ title: "Refund Policy v2", body_md: "# Refund Policy\nWithin 30 days." }));
+  await waitFor(() => expect(sent).toEqual({ title: "Refund Policy v2", body_md: "# Refund Policy\nWithin 30 days.", base_updated_at: "2026-09-20T10:00:00Z" }));
   expect(await screen.findByText("Saved")).toBeInTheDocument();
   await waitFor(() => expect(screen.queryByText(/Unsaved changes/)).not.toBeInTheDocument());
 });
@@ -292,7 +292,7 @@ test("a failed index explains itself and Save works without any edit", async () 
   expect(await screen.findByText(/Indexing failed\. Save again to retry/)).toBeInTheDocument();
   expect(save()).toBeEnabled();
   await userEvent.click(save());
-  await waitFor(() => expect(sent).toEqual({ title: "Refund Policy", body_md: "# Refund Policy\nWithin 30 days." }));
+  await waitFor(() => expect(sent).toEqual({ title: "Refund Policy", body_md: "# Refund Policy\nWithin 30 days.", base_updated_at: "2026-09-20T10:00:00Z" }));
 });
 
 test("a new document is created on Save and then opened", async () => {
@@ -412,4 +412,84 @@ test("after a save the editor shows what the server stored, so it is not left di
   expect(screen.getByRole("textbox", { name: "Title" })).toHaveValue("Refund Policy");
   expect(save()).toBeDisabled();
   expect(screen.queryByRole("button", { name: "Discard" })).not.toBeInTheDocument();
+});
+
+test("a save is based on the version that was opened, and later saves on the version just saved", async () => {
+  mockApi();
+  const bases: unknown[] = [];
+  server.use(
+    http.put("*/api/documents/10", async ({ request }) => {
+      const sent = (await request.json()) as { base_updated_at?: string };
+      bases.push(sent.base_updated_at);
+      return HttpResponse.json(makeDoc({ title: "Refund Policy v2", updated_at: `2026-09-2${bases.length}T12:00:00Z` }));
+    }),
+  );
+  renderWithClient(<DocEditor spaceId={1} docId={10} />);
+  await userEvent.type(await title(), " v2");
+  await userEvent.click(save());
+  await waitFor(() => expect(bases).toEqual(["2026-09-20T10:00:00Z"]));
+  await waitFor(() => expect(save()).toBeDisabled());
+  await userEvent.type(body(), " more");
+  await userEvent.click(save());
+  await waitFor(() => expect(bases).toEqual(["2026-09-20T10:00:00Z", "2026-09-21T12:00:00Z"]));
+});
+
+function mockConflict() {
+  mockApi();
+  const sent: Array<{ base_updated_at?: string; body_md?: string }> = [];
+  let conflict = true;
+  server.use(
+    http.put("*/api/documents/10", async ({ request }) => {
+      const body = (await request.json()) as { base_updated_at?: string; body_md?: string };
+      sent.push(body);
+      if (conflict && body.base_updated_at) {
+        return HttpResponse.json({ detail: "This document was changed by someone else since you opened it." }, { status: 409 });
+      }
+      return HttpResponse.json(makeDoc({ body_md: body.body_md, updated_at: "2026-09-26T09:00:00Z" }));
+    }),
+  );
+  return { sent, resolve: () => (conflict = false) };
+}
+
+test("a conflicting save keeps the user's edits and offers a choice", async () => {
+  const { sent } = mockConflict();
+  renderWithClient(<DocEditor spaceId={1} docId={10} />);
+  await userEvent.type(await title(), " mine");
+  await userEvent.click(save());
+  const alert = await screen.findByRole("alert");
+  expect(alert).toHaveTextContent(/changed by someone else/i);
+  expect(screen.getByRole("textbox", { name: "Title" })).toHaveValue("Refund Policy mine");
+  expect(screen.getByRole("button", { name: "Overwrite with my version" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Load their version" })).toBeInTheDocument();
+  expect(screen.queryByText("Saved")).not.toBeInTheDocument();
+  expect(sent).toHaveLength(1);
+});
+
+test("overwriting sends the save without a base version and clears the conflict", async () => {
+  const { sent } = mockConflict();
+  renderWithClient(<DocEditor spaceId={1} docId={10} />);
+  await userEvent.type(await title(), " mine");
+  await userEvent.click(save());
+  await userEvent.click(await screen.findByRole("button", { name: "Overwrite with my version" }));
+  await waitFor(() => expect(sent).toHaveLength(2));
+  expect(sent[1].base_updated_at).toBeUndefined();
+  await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+});
+
+test("loading their version replaces the local edits with the server's document", async () => {
+  mockConflict();
+  renderWithClient(<DocEditor spaceId={1} docId={10} />);
+  await userEvent.type(await title(), " mine");
+  await userEvent.click(save());
+  await screen.findByRole("alert");
+  server.use(
+    http.get("*/api/documents/10", () =>
+      HttpResponse.json(makeDoc({ title: "Their title", body_md: "their body", updated_at: "2026-09-25T18:00:00Z" })),
+    ),
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Load their version" }));
+  await waitFor(() => expect(screen.getByRole("textbox", { name: "Title" })).toHaveValue("Their title"));
+  expect(body()).toHaveValue("their body");
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(save()).toBeDisabled();
 });
