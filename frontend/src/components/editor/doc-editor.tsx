@@ -1,5 +1,6 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -12,7 +13,7 @@ import { Dialog, DialogClose, DialogContent, DialogTrigger } from "@/components/
 import { ErrorState } from "@/components/ui/error-state";
 import { Input, Textarea } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ApiError, errorMessage } from "@/lib/api";
+import { ApiError, apiFetch, errorMessage } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import {
   bold,
@@ -24,7 +25,7 @@ import {
   numberedList,
   type Edit,
 } from "@/lib/markdown-tools";
-import { docKey, useCreateDoc, useDeleteDoc, useDocument, useSaveDoc, useSpaces } from "@/lib/queries";
+import { docKey, qk, useCreateDoc, useDeleteDoc, useDocument, useSaveDoc, useSpaces } from "@/lib/queries";
 import { timeAgo } from "@/lib/time";
 import { canEdit, type Doc } from "@/lib/types";
 import { EditorToolbar, type ToolName } from "./editor-toolbar";
@@ -125,6 +126,10 @@ function EditorBody({ spaceId, doc, readOnly, stuck, onDeleted }: EditorBodyProp
   const [body, setBody] = useState(doc?.body_md ?? "");
   const [mode, setMode] = useState<Mode>("split");
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const client = useQueryClient();
+  // The version the current edits started from; sent with each save so a concurrent change is detected.
+  const [baseVersion, setBaseVersion] = useState(doc?.updated_at);
+  const [conflict, setConflict] = useState(false);
   const textarea = useRef<HTMLTextAreaElement>(null);
   const pendingSelection = useRef<{ start: number; end: number } | null>(null);
 
@@ -161,7 +166,24 @@ function EditorBody({ spaceId, doc, readOnly, stuck, onDeleted }: EditorBodyProp
     setBody(edit.text);
   }
 
-  async function onSave() {
+  async function loadTheirVersion() {
+    if (!doc) return;
+    try {
+      const fresh = await client.fetchQuery({
+        queryKey: qk.doc(doc.id),
+        queryFn: () => apiFetch<Doc>(`/documents/${doc.id}`),
+        staleTime: 0,
+      });
+      setTitle(fresh.title);
+      setBody(fresh.body_md);
+      setBaseVersion(fresh.updated_at);
+      setConflict(false);
+    } catch (err) {
+      toast.error(message(err));
+    }
+  }
+
+  async function onSave(overwrite = false) {
     const cleanTitle = title.trim() || "Untitled";
     try {
       if (!doc) {
@@ -169,13 +191,23 @@ function EditorBody({ spaceId, doc, readOnly, stuck, onDeleted }: EditorBodyProp
         toast.success("Created");
         router.replace(`/s/${spaceId}/d/${created.id}`);
       } else {
-        const saved = await save.mutateAsync({ title: cleanTitle, body_md: body });
+        const saved = await save.mutateAsync({
+          title: cleanTitle,
+          body_md: body,
+          ...(!overwrite && baseVersion ? { base_updated_at: baseVersion } : {}),
+        });
+        setBaseVersion(saved.updated_at);
+        setConflict(false);
         // Show what the server actually stored (it may normalise the text), unless the user kept typing meanwhile.
         setTitle((current) => (current === title ? saved.title : current));
         setBody((current) => (current === body ? saved.body_md : current));
         toast.success("Saved");
       }
     } catch (err) {
+      if (doc && err instanceof ApiError && err.status === 409) {
+        setConflict(true);
+        return;
+      }
       toast.error(message(err));
     }
   }
@@ -264,6 +296,19 @@ function EditorBody({ spaceId, doc, readOnly, stuck, onDeleted }: EditorBodyProp
       </div>
 
       <Meta doc={doc} stuck={stuck} dirty={dirty} />
+      {conflict ? (
+        <div role="alert" className="mt-3 rounded-lg bg-amber-tint px-3 py-2 text-sm text-amber-ink">
+          <p>This document was changed by someone else since you opened it. Your edits are still here.</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Button size="sm" variant="danger" disabled={busy} onClick={() => void onSave(true)}>
+              Overwrite with my version
+            </Button>
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => void loadTheirVersion()}>
+              Load their version
+            </Button>
+          </div>
+        </div>
+      ) : null}
       {failed ? (
         <p role="status" className="mt-3 rounded-lg bg-danger-tint px-3 py-2 text-sm text-danger">
           Indexing failed. Save again to retry. Your document is saved but will not show up in search until it is indexed.
