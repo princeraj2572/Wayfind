@@ -172,3 +172,38 @@ test("on the analytics page Analytics is the current item and Documents is not",
   expect(await screen.findByRole("link", { name: "Analytics" })).toHaveAttribute("aria-current", "page");
   expect(screen.getByRole("link", { name: "Documents" })).not.toHaveAttribute("aria-current");
 });
+
+describe("theme choice", () => {
+  afterEach(() => {
+    localStorage.clear();
+    delete document.documentElement.dataset.theme;
+  });
+
+  test("the account menu offers Light, Dark and System, with System selected by default", async () => {
+    mockApi();
+    renderWithClient(<Sidebar />);
+    await userEvent.click(await screen.findByRole("button", { name: /account menu/i }));
+    expect(await screen.findByRole("menuitemradio", { name: "System" })).toBeChecked();
+    expect(screen.getByRole("menuitemradio", { name: "Light" })).not.toBeChecked();
+    expect(screen.getByRole("menuitemradio", { name: "Dark" })).not.toBeChecked();
+  });
+
+  test("choosing Dark applies it at once and remembers it", async () => {
+    mockApi();
+    renderWithClient(<Sidebar />);
+    await userEvent.click(await screen.findByRole("button", { name: /account menu/i }));
+    await userEvent.click(await screen.findByRole("menuitemradio", { name: "Dark" }));
+    expect(document.documentElement.dataset.theme).toBe("dark");
+    expect(localStorage.getItem("wayfind_theme")).toBe("dark");
+    await userEvent.click(screen.getByRole("button", { name: /account menu/i }));
+    expect(await screen.findByRole("menuitemradio", { name: "Dark" })).toBeChecked();
+  });
+
+  test("a saved choice is shown as selected when the menu opens", async () => {
+    localStorage.setItem("wayfind_theme", "light");
+    mockApi();
+    renderWithClient(<Sidebar />);
+    await userEvent.click(await screen.findByRole("button", { name: /account menu/i }));
+    expect(await screen.findByRole("menuitemradio", { name: "Light" })).toBeChecked();
+  });
+});
