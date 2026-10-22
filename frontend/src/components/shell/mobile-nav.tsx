@@ -9,6 +9,7 @@ import { Brand } from "@/components/brand";
 import { useSignOut } from "@/lib/use-sign-out";
 import { useSpaces } from "@/lib/queries";
 import { NewSpaceDialog } from "./new-space-dialog";
+import { ThemeMenuItems } from "./theme-menu";
 
 const item =
   "flex cursor-pointer items-center justify-between gap-3 rounded-md px-2.5 py-2 text-sm outline-none data-[highlighted]:bg-panel";
@@ -25,7 +26,7 @@ export function MobileNav() {
   const currentSpace = list.find((s) => String(s.id) === currentId);
 
   return (
-    <header className="sticky top-0 z-30 flex h-12 shrink-0 items-center justify-between border-b border-line bg-white px-4 md:hidden">
+    <header className="sticky top-0 z-30 flex h-12 shrink-0 items-center justify-between border-b border-line bg-surface px-4 md:hidden">
       <Link href="/ask">
         <Brand />
       </Link>
@@ -41,7 +42,7 @@ export function MobileNav() {
           <DropdownMenu.Content
             align="end"
             sideOffset={6}
-            className="z-50 max-h-[70vh] min-w-56 overflow-y-auto rounded-lg border border-line bg-white p-1 shadow-lg"
+            className="z-50 max-h-[70vh] min-w-56 overflow-y-auto rounded-lg border border-line bg-surface p-1 shadow-lg"
           >
             <DropdownMenu.Item asChild>
               <Link href="/ask" className={item}>
@@ -71,6 +72,8 @@ export function MobileNav() {
                 </DropdownMenu.Item>
               ))
             )}
+            <DropdownMenu.Separator className="my-1 h-px bg-line" />
+            <ThemeMenuItems itemClass={item} />
             <DropdownMenu.Separator className="my-1 h-px bg-line" />
             <DropdownMenu.Item onSelect={() => setNewSpaceOpen(true)} className={item}>
               New space
