@@ -4,8 +4,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { Toaster } from "sonner";
 import { ApiError } from "@/lib/api";
+import { useTheme } from "@/lib/theme";
 
 export function Providers({ children }: { children: React.ReactNode }) {
+  // Mounted for the whole app so the theme follows the OS and other tabs even when no menu is open.
+  const [theme] = useTheme();
   const [client] = useState(
     () =>
       new QueryClient({
@@ -24,7 +27,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={client}>
       {children}
-      <Toaster position="bottom-right" richColors closeButton />
+      <Toaster position="bottom-right" richColors closeButton theme={theme} />
     </QueryClientProvider>
   );
 }
