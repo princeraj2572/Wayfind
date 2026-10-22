@@ -61,7 +61,7 @@ export function AnswerCard({ entry }: { entry: Entry }) {
                     type="button"
                     aria-label={`Show source ${part.n}`}
                     onClick={() => show(part.n)}
-                    className="mx-0.5 inline-block rounded bg-brand px-1.5 align-baseline text-[11px] font-bold text-white hover:bg-brand-dark"
+                    className="mx-0.5 inline-block rounded bg-brand px-1.5 align-baseline text-[11px] font-bold text-on-brand hover:bg-brand-dark"
                   >
                     {part.n}
                   </button>
