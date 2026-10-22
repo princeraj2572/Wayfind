@@ -12,7 +12,7 @@ import { UserMenu } from "./user-menu";
 
 const item = "flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm";
 const active = "bg-brand-tint font-semibold text-brand-dark";
-const idle = "text-ink-soft hover:bg-white";
+const idle = "text-ink-soft hover:bg-surface";
 
 export function Sidebar() {
   const pathname = usePathname();
