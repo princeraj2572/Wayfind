@@ -16,7 +16,7 @@ import type { Member, Role } from "@/lib/types";
 
 const ROLES: Role[] = ["viewer", "editor", "admin"];
 const select =
-  "h-9 rounded-lg border border-field bg-white px-2 text-sm text-ink focus-visible:border-brand focus-visible:outline-2 focus-visible:outline-brand/40 disabled:opacity-50";
+  "h-9 rounded-lg border border-field bg-surface px-2 text-sm text-ink focus-visible:border-brand focus-visible:outline-2 focus-visible:outline-brand/40 disabled:opacity-50";
 
 function addErrorText(err: unknown): string {
   if (err instanceof ApiError) {
