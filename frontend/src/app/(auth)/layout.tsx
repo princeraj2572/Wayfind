@@ -7,7 +7,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <div className="mb-6 flex justify-center">
           <Brand className="text-lg" />
         </div>
-        <div className="rounded-2xl border border-line bg-white p-6 shadow-sm">{children}</div>
+        <div className="rounded-2xl border border-line bg-surface p-6 shadow-sm">{children}</div>
       </div>
     </div>
   );
