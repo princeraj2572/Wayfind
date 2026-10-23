@@ -31,7 +31,7 @@ export function EditorToolbar({ onTool, disabled }: { onTool: (tool: ToolName) =
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => onTool(name)}
           className={cn(
-            "grid size-8 place-items-center rounded-md border border-line bg-white text-ink-soft hover:bg-panel",
+            "grid size-8 place-items-center rounded-md border border-line bg-surface text-ink-soft hover:bg-panel",
             "disabled:pointer-events-none disabled:opacity-50",
           )}
         >
